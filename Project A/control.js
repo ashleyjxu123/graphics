@@ -54,8 +54,10 @@ var g_angle04Rate = 20.0;
 var g_x01 = 0;
 var g_x01Rate = 1.0;
 
-var g_y01 = 0;
+var g_y01 = 0.5;
 var g_y01Rate = 1.0;
+
+var delta = 0.1;
 
 //------------For mouse click-and-drag: -------------------------------
 var g_isDrag=false;		// mouse-drag: true when user holds down mouse button
@@ -97,6 +99,12 @@ function main() {
 	window.addEventListener("mouseup", myMouseUp);	
 	window.addEventListener("click", myMouseClick);				
 	window.addEventListener("dblclick", myMouseDblClick); 
+
+  window.addEventListener("keydown", myKeyDown, false);
+	// After each 'keydown' event, call the 'myKeyDown()' function.  The 'false' 
+	// arg (default) ensures myKeyDown() call in 'bubbling', not 'capture' stage)
+	// ( https://www.w3schools.com/jsref/met_document_addeventlistener.asp )
+	//window.addEventListener("keyup", myKeyUp, false);
 
 
 	// END Keyboard & Mouse Event-Handlers---------------------------------------
@@ -9019,7 +9027,9 @@ function drawBee() {
 
   pushMatrix(g_modelMatrix);
 
-  g_modelMatrix.translate(g_x01, 0.5, 0.0);
+  // BEE
+
+  g_modelMatrix.translate(g_x01, g_y01, 0.0);
   g_modelMatrix.scale(0.1, 0.1, 0.1);
   gl.uniformMatrix4fv(g_modelMatLoc, false, g_modelMatrix.elements);
 
@@ -9036,18 +9046,10 @@ function drawBee() {
       8220,                     // start at vertex 12,
       576);
 
+  pushMatrix(g_modelMatrix);
+  g_modelMatrix.translate(g_xMdragTot, g_yMdragTot, 0.0);
 
   g_modelMatrix = popMatrix();
-
-
-  //     // Attempt 2: perp-axis rotation:
-  //               // rotate on axis perpendicular to the mouse-drag direction:
-  //   var dist = Math.sqrt(g_xMdragTot*g_xMdragTot + g_yMdragTot*g_yMdragTot);
-  //   // why add 0.001? avoids divide-by-zero in next statement
-  //   // in cases where user didn't drag the mouse.)
-  // g_modelMatrix.rotate(dist*120.0, -g_yMdragTot+0.0001, g_xMdragTot+0.0001, 0.0);
-  // // Acts weirdly as rotation amounts get far from 0 degrees.
-  // // ?why does intuition fail so quickly here?
 
 }
 
@@ -9146,20 +9148,6 @@ function animate() {
 
 //==================HTML Button Callbacks======================
 
-function angleSubmit() {
-// Called when user presses 'Submit' button on our webpage
-//		HOW? Look in HTML file (e.g. ControlMulti.html) to find
-//	the HTML 'input' element with id='usrAngle'.  Within that
-//	element you'll find a 'button' element that calls this fcn.
-
-// Read HTML edit-box contents:
-	var UsrTxt = document.getElementById('usrAngle').value;	
-// Display what we read from the edit-box: use it to fill up
-// the HTML 'div' element with id='editBoxOut':
-  document.getElementById('EditBoxOut').innerHTML ='You Typed: '+UsrTxt;
-  console.log('angleSubmit: UsrTxt:', UsrTxt); // print in console, and
-  g_angle01 = parseFloat(UsrTxt);     // convert string to float number 
-};
 
 function clearDrag() {
 // Called when user presses 'Clear' button in our webpage
@@ -9172,11 +9160,15 @@ function spinUp() {
 // ?HOW? Look in the HTML file (e.g. ControlMulti.html) to find
 // the HTML 'button' element with onclick='spinUp()'.
   g_angle01Rate += 25; 
+  g_angle02Rate -= 15;
+  g_angle03Rate += 15;
 }
 
 function spinDown() {
 // Called when user presses the 'Spin <<' button
  g_angle01Rate -= 25; 
+ g_angle02Rate += 15;
+ g_angle03Rate -= 15;
 }
 
 function runStop() {
@@ -9187,6 +9179,22 @@ function runStop() {
   }
   else {    // but if rate is zero,
   	g_angle01Rate = myTmp;  // use the stored rate.
+  }
+
+  if(g_angle02Rate*g_angle02Rate > 1) {  // if nonzero rate,
+    myTmp2 = g_angle02Rate;  // store the current rate,
+    g_angle02Rate = 0;      // and set to zero.
+  }
+  else {    // but if rate is zero,
+  	g_angle02Rate = myTmp2;  // use the stored rate.
+  }
+
+  if(g_angle03Rate*g_angle03Rate > 1) {  // if nonzero rate,
+    myTmp3 = g_angle03Rate;  // store the current rate,
+    g_angle03Rate = 0;      // and set to zero.
+  }
+  else {    // but if rate is zero,
+  	g_angle03Rate = myTmp3;  // use the stored rate.
   }
 }
 
@@ -9214,8 +9222,31 @@ function myMouseDown(ev) {
     g_xMclik = x;													// record where mouse-dragging began
     g_yMclik = y;
     // report on webpage
-    document.getElementById('MouseAtResult').innerHTML = 
-      'Mouse At: '+x.toFixed(g_digits)+', '+y.toFixed(g_digits);
+    // document.getElementById('MouseAtResult').innerHTML = 
+    //   'Mouse At: '+x.toFixed(g_digits)+', '+y.toFixed(g_digits);
+
+      if (x >= 1 && y >= 1) {
+        g_x01 = 1;
+        g_y01 = 1;
+      } else if (x <= -1 && y <= -1) {
+        g_x01 = -1;
+        g_y01 = -1;
+      } else if (x >= 1){
+        g_x01 = 1;
+        g_y01 = y;
+      } else if (x <= -1){
+        g_x01 = -1;
+        g_y01 = y;
+      } else if (y >= 1){
+        g_x01 = x;
+        g_y01 = 1;
+      } else if (y <= -1){
+        g_x01 = x;
+        g_y01 = -1;
+      } else {
+        g_x01 = x;
+        g_y01 = y;
+      }
   };
   
   
@@ -9246,15 +9277,34 @@ function myMouseDown(ev) {
     g_xMdragTot += (x - g_xMclik);			// Accumulate change-in-mouse-position,&
     g_yMdragTot += (y - g_yMclik);
     // Report new mouse position & how far we moved on webpage:
-    document.getElementById('MouseAtResult').innerHTML = 
-      'Mouse At: '+x.toFixed(g_digits)+', '+y.toFixed(g_digits);
-    document.getElementById('MouseDragResult').innerHTML = 
-      'Mouse Drag: '+(x - g_xMclik).toFixed(g_digits)+', '
-        +(y - g_yMclik).toFixed(g_digits);
-  
+    // document.getElementById('MouseAtResult').innerHTML = 
+    //   'Mouse At: '+x.toFixed(g_digits)+', '+y.toFixed(g_digits);
   
     g_xMclik = x;											// Make next drag-measurement from here.
     g_yMclik = y;
+
+    if (x >= 1 && y >= 1) {
+      g_x01 = 1;
+      g_y01 = 1;
+    } else if (x <= -1 && y <= -1) {
+      g_x01 = -1;
+      g_y01 = -1;
+    } else if (x >= 1){
+      g_x01 = 1;
+      g_y01 = y;
+    } else if (x <= -1){
+      g_x01 = -1;
+      g_y01 = y;
+    } else if (y >= 1){
+      g_x01 = x;
+      g_y01 = 1;
+    } else if (y <= -1){
+      g_x01 = x;
+      g_y01 = -1;
+    } else {
+      g_x01 = x;
+      g_y01 = y;
+    }
   };
   
   function myMouseUp(ev) {
@@ -9282,35 +9332,99 @@ function myMouseDown(ev) {
     g_xMdragTot += (x - g_xMclik);
     g_yMdragTot += (y - g_yMclik);
     // Report new mouse position:
-    document.getElementById('MouseAtResult').innerHTML = 
-      'Mouse At: '+x.toFixed(g_digits)+', '+y.toFixed(g_digits);
+    // document.getElementById('MouseAtResult').innerHTML = 
+    //   'Mouse At: '+x.toFixed(g_digits)+', '+y.toFixed(g_digits);
     console.log('myMouseUp: g_xMdragTot,g_yMdragTot =',
       g_xMdragTot.toFixed(g_digits),',\t',g_yMdragTot.toFixed(g_digits));
+
+    if (x >= 1 && y >= 1) {
+      g_x01 = 1;
+      g_y01 = 1;
+    } else if (x <= -1 && y <= -1) {
+      g_x01 = -1;
+      g_y01 = -1;
+    } else if (x >= 1){
+      g_x01 = 1;
+      g_y01 = y;
+    } else if (x <= -1){
+      g_x01 = -1;
+      g_y01 = y;
+    } else if (y >= 1){
+      g_x01 = x;
+      g_y01 = 1;
+    } else if (y <= -1){
+      g_x01 = x;
+      g_y01 = -1;
+    } else {
+      g_x01 = x;
+      g_y01 = y;
+    }
+    
   };
   
   function myMouseClick(ev) {
-  //=============================================================================
-  // Called when user completes a mouse-button single-click event 
-  // (e.g. mouse-button pressed down, then released)
-  // 									   
-  //    WHICH button? try:  console.log('ev.button='+ev.button); 
-  // 		ev.clientX, ev.clientY == mouse pointer location, but measured in webpage 
-  //		pixels: left-handed coords; UPPER left origin; Y increases DOWNWARDS (!) 
-  //    See myMouseUp(), myMouseDown() for conversions to  CVV coordinates.
-  
-    // STUB
     console.log("myMouseClick() on button: ", ev.button); 
   }	
   
   function myMouseDblClick(ev) {
-  //=============================================================================
-  // Called when user completes a mouse-button double-click event 
-  // 									   
-  //    WHICH button? try:  console.log('ev.button='+ev.button); 
-  // 		ev.clientX, ev.clientY == mouse pointer location, but measured in webpage 
-  //		pixels: left-handed coords; UPPER left origin; Y increases DOWNWARDS (!) 
-  //    See myMouseUp(), myMouseDown() for conversions to  CVV coordinates.
-  
-    // STUB
     console.log("myMouse-DOUBLE-Click() on button: ", ev.button); 
   }	
+
+  function myKeyDown(kev) {
+    //===============================================================================
+    // Called when user presses down ANY key on the keyboard;
+    //
+    // For a light, easy explanation of keyboard events in JavaScript,
+    // see:    http://www.kirupa.com/html5/keyboard_events_in_javascript.htm
+    // For a thorough explanation of a mess of JavaScript keyboard event handling,
+    // see:    http://javascript.info/tutorial/keyboard-events
+    //
+    // NOTE: Mozilla deprecated the 'keypress' event entirely, and in the
+    //        'keydown' event deprecated several read-only properties I used
+    //        previously, including kev.charCode, kev.keyCode. 
+    //        Revised 2/2019:  use kev.key and kev.code instead.
+    //
+    // Report EVERYTHING in console:
+      console.log(  "--kev.code:",    kev.code,   "\t\t--kev.key:",     kev.key, 
+                  "\n--kev.ctrlKey:", kev.ctrlKey,  "\t--kev.shiftKey:",kev.shiftKey,
+                  "\n--kev.altKey:",  kev.altKey,   "\t--kev.metaKey:", kev.metaKey);
+    
+    // and report EVERYTHING on webpage:
+      // document.getElementById('KeyDownResult').innerHTML = ''; // clear old results
+      switch(kev.code) {
+        //----------------Arrow keys------------------------
+        case "ArrowLeft": 	
+          console.log(' left-arrow.');
+          // and print on webpage in the <div> element with id='Result':
+          // document.getElementById('KeyDownResult').innerHTML =
+          //   'myKeyDown(): Left Arrow='+kev.keyCode;
+
+          if (g_x01 >= -1.0) g_x01 -= delta;
+          break;
+        case "ArrowRight":
+          console.log('right-arrow.');
+          // document.getElementById('KeyDownResult').innerHTML =
+          //   'myKeyDown():Right Arrow:keyCode='+kev.keyCode;
+
+          if (g_x01 <= 1.0) g_x01 += delta;
+          break;
+        case "ArrowUp":		
+          console.log('   up-arrow.');
+          // document.getElementById('KeyDownResult').innerHTML =
+          //   'myKeyDown():   Up Arrow:keyCode='+kev.keyCode;
+
+          if (g_y01 <= 1.0) g_y01 += delta;
+          break;
+        case "ArrowDown":
+          console.log(' down-arrow.');
+          // document.getElementById('KeyDownResult').innerHTML =
+          //   'myKeyDown(): Down Arrow:keyCode='+kev.keyCode;
+          if (g_x01 >= -1.0) g_y01 -= delta;
+          break;	
+        default:
+          console.log("UNUSED!");
+          // document.getElementById('KeyDownResult').innerHTML =
+          //   'Please only press arrow keys.';
+          break;
+      }
+    }
