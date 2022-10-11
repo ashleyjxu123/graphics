@@ -8,7 +8,7 @@ output_folder = './output/'
 #file_name = 'UtahTeapot01-n.obj'
 #file_name = 'tyra.obj'
 #file_name = 'smooth_sphere.obj'
-file_name = 'tongue.obj'
+file_name = 'pad.obj'
 
 def normalize_CVV(vertexArray):
     va = np.array(vertexArray).astype(float)
@@ -21,7 +21,7 @@ def normalize_CVV(vertexArray):
 def add_surface_normal(final_vertex_array):
     vf = np.array(final_vertex_array).astype(float)
     #print(vf.shape)
-    g = np.array([1.0, 0.57, 0.9])
+    g = np.array([0.2, 0.5, 0.6])
 
     vn = np.tile(g, (vf.shape[0], 1))
     # edge1 = vf[1::3] - vf[0::3]
