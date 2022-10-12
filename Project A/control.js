@@ -9356,45 +9356,45 @@ function clearDrag() {
 	g_yMdragTot = 0.0;
 }
 
-function spinUp() {
+function spinUp(i) {
 // Called when user presses the 'Spin >>' button on our webpage.
 // ?HOW? Look in the HTML file (e.g. ControlMulti.html) to find
 // the HTML 'button' element with onclick='spinUp()'.
-  g_angle01Rate += 25; 
-  g_angle02Rate -= 15;
-  g_angle03Rate += 15;
+  if (i==1) {  g_angle01Rate += 25; }
+  else if (i == 2) { g_angle02Rate -= 15; }
+  else {g_angle03Rate += 15;}
 }
 
-function spinDown() {
+function spinDown(i) {
 // Called when user presses the 'Spin <<' button
- g_angle01Rate -= 25; 
- g_angle02Rate += 15;
- g_angle03Rate -= 15;
+  if (i==1) {  g_angle01Rate -= 25; }
+  else if (i == 2) { g_angle02Rate += 15; }
+  else {g_angle03Rate -= 15;}
 }
 
-function runStop() {
+function runStop(i) {
 // Called when user presses the 'Run/Stop' button
-  if(g_angle01Rate*g_angle01Rate > 1) {  // if nonzero rate,
+  if(g_angle01Rate*g_angle01Rate > 1 && i == 1) {  // if nonzero rate,
     myTmp = g_angle01Rate;  // store the current rate,
     g_angle01Rate = 0;      // and set to zero.
   }
-  else {    // but if rate is zero,
+  else if (i==1) {    // but if rate is zero,
   	g_angle01Rate = myTmp;  // use the stored rate.
   }
 
-  if(g_angle02Rate*g_angle02Rate > 1) {  // if nonzero rate,
+  if(g_angle02Rate*g_angle02Rate > 1 && i ==2) {  // if nonzero rate,
     myTmp2 = g_angle02Rate;  // store the current rate,
     g_angle02Rate = 0;      // and set to zero.
   }
-  else {    // but if rate is zero,
+  else if (i==2){    // but if rate is zero,
   	g_angle02Rate = myTmp2;  // use the stored rate.
   }
 
-  if(g_angle03Rate*g_angle03Rate > 1) {  // if nonzero rate,
+  if(g_angle03Rate*g_angle03Rate > 1 && i ==3) {  // if nonzero rate,
     myTmp3 = g_angle03Rate;  // store the current rate,
     g_angle03Rate = 0;      // and set to zero.
   }
-  else {    // but if rate is zero,
+  else if (i==3) {    // but if rate is zero,
   	g_angle03Rate = myTmp3;  // use the stored rate.
   }
 }
