@@ -8,7 +8,7 @@ output_folder = './output/'
 #file_name = 'UtahTeapot01-n.obj'
 #file_name = 'tyra.obj'
 #file_name = 'smooth_sphere.obj'
-file_name = 'pad.obj'
+file_name = 'tongue.obj'
 
 def normalize_CVV(vertexArray):
     va = np.array(vertexArray).astype(float)
@@ -21,15 +21,15 @@ def normalize_CVV(vertexArray):
 def add_surface_normal(final_vertex_array):
     vf = np.array(final_vertex_array).astype(float)
     #print(vf.shape)
-    g = np.array([0.2, 0.5, 0.6])
+    # g = np.array([0.2, 0.5, 0.6])
 
-    vn = np.tile(g, (vf.shape[0], 1))
-    # edge1 = vf[1::3] - vf[0::3]
-    # edge2 = vf[2::3] - vf[1::3]
-    # normal = np.cross(edge1[:,:3],edge2[:,:3])
-    # normal_norm = (normal.T/np.linalg.norm(normal,axis=1).T).T
-    # vn = np.repeat(normal_norm,3,axis=0)
-    # #print(vn.shape)
+    # vn = np.tile(g, (vf.shape[0], 1))
+    edge1 = vf[1::3] - vf[0::3]
+    edge2 = vf[2::3] - vf[1::3]
+    normal = np.cross(edge1[:,:3],edge2[:,:3])
+    normal_norm = (normal.T/np.linalg.norm(normal,axis=1).T).T
+    vn = np.repeat(normal_norm,3,axis=0)
+    #print(vn.shape)
     vcn = np.concatenate((vf,vn),axis = 1)
     vcn = vcn.tolist()
     return vcn
