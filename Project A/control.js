@@ -9310,6 +9310,7 @@ function animate() {
 //==============================================================================
   // Calculate the elapsed time
   var now = Date.now();
+  var rand = Math.random() * 2;
   var elapsed = now - g_last;
   g_last = now;
   
@@ -9344,6 +9345,10 @@ function animate() {
   g_x01 = g_x01 + (g_x01Rate * elapsed) / 1000.0;
   if(g_x01 > 1.0 && g_x01Rate > 0) g_x01Rate *= -1.0;
   if(g_x01 < -1.0 && g_x01Rate < 0) g_x01Rate *= -1.0;
+
+  g_y01 = g_y01 + (g_y01Rate * elapsed) / 1000.0;
+  if(g_y01 > 1.0 && g_y01Rate > 0) g_y01Rate *= -rand;
+  if(g_y01 < -1.0 && g_y01Rate < 0) g_y01Rate *= -1.0;
 
 }
 
