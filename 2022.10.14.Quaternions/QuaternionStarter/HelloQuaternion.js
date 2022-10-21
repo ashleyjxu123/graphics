@@ -161,6 +161,7 @@ var R1 = new Matrix4();
 	R1.printMe();
 	console.log('YES! AGREES with online quaternion calculator!');
 */
+	testQuaternions();	
 	
 	/*
 	*
@@ -169,4 +170,165 @@ var R1 = new Matrix4();
 	*  (Be sure you try the quaternion multiply vs. matrix multiply)
 	*
 	*/
+	}
+
+function testQuaternions() {
+	//==============================================================================
+	// Test our little "quaternion-mod.js" library with simple rotations for which 
+	// we know the answers; print results to make sure all functions work as 
+	// intended.
+	// 1)  Test constructors and value-setting functions:
+	
+		var res = 5;
+
+		// NEW STUDENT CODE:
+
+		// Creating new quaternions
+
+		// Long Quat (mag > 1) rotated 30 degrees around x axis
+		var q0 = new Quaternion(1, 1, 1, 1);
+			console.log('constructor: q0(x,y,z,w)=', 
+			q0.x.toFixed(res), q0.y.toFixed(res), q0.z.toFixed(res), q0.w.toFixed(res));
+			console.log('q0.length()=', q0.length().toFixed(res));
+		q0.normalize();
+			console.log('normalized: q0(x,y,z,w)=', 
+			q0.x.toFixed(res), q0.y.toFixed(res), q0.z.toFixed(res), q0.w.toFixed(res));
+		q0.setFromAxisAngle(1,0,0, 30.0);
+			console.log('rotated 30 on x: q0(x,y,z,w)=', 
+			q0.x.toFixed(res), q0.y.toFixed(res), q0.z.toFixed(res), q0.w.toFixed(res));
+		
+
+		// Short quat (mag < 1), rotated -45 around z axis
+		var q1 = new Quaternion(.1, .1, .1, .1);
+			console.log('constructor: q1(x,y,z,w)=', 
+			q1.x, q1.y, q1.z, q1.w);
+			console.log('q1.length()=', q1.length().toFixed(res));
+		q1.normalize();
+			console.log('normalized: q1(x,y,z,w)=', 
+			q1.x.toFixed(res), q1.y.toFixed(res), q1.z.toFixed(res), q1.w.toFixed(res));
+		q1.setFromAxisAngle(0,0,1, -45.0);	
+			console.log('rotated -45 deg on z: q1(x,y,z,w)=', 
+			q1.x.toFixed(res), q1.y.toFixed(res), q1.z.toFixed(res), q1.w.toFixed(res));
+
+		// quat rotated 90 around (1, 1, 1)
+		var q2 = new Quaternion(2, 3, 4, 1);
+			console.log('constructor:q2(x,y,z,w)=', 
+			q2.x, q2.y, q2.z, q2.w);
+			console.log('q2.length()=', q2.length().toFixed(res));
+		q2.normalize();
+			console.log('normalized: q2(x,y,z,w)=', 
+			q2.x.toFixed(res), q2.y.toFixed(res), q2.z.toFixed(res), q2.w.toFixed(res));
+		q2.setFromAxisAngle(1,1,1, 90.0);	
+			console.log('rotated 90 on x, y and z: q2(x,y,z,w)=', 
+			q2.x.toFixed(res), q2.y.toFixed(res), q2.z.toFixed(res), q2.w.toFixed(res));
+
+
+		// CONVERTING Q0 AND Q1 INTO ROTATION MATRICES
+		var R0 = new Matrix4();
+		var R1 = new Matrix4();
+		R0.setFromQuat(q0.x, q0.y, q0.z, q0.w);
+		console.log('q0 as matrix:');
+		R0.printMe();
+		R1.setFromQuat(q1.x, q1.y, q1.z, q1.w);
+		console.log('q1 as matrix:');
+		R1.printMe();
+
+		// Multiplying [R0][R1] and [R1][R0]
+		var R01 = R0.concat(R1);
+		console.log('R01 = [R0][R1]: ');
+		R01.printMe();
+		var R10 = R1.concat(R0);
+		console.log('R10 = R[1]R[0]: ');
+		R10.printMe();
+		console.log('They agree with our online calculator.');
+
+
+		// Multiplying q1 and q0 and in reverse, then converting to matrices
+		var q01 = new Quaternion();
+		var q10 = new Quaternion();
+		q01.multiply(q0, q1);
+		console.log('q01:', q01.x.toFixed(res),q01.y.toFixed(res),q01.z.toFixed(res),q01.w.toFixed(res));
+		q10.multiply(q1, q0);
+		console.log('q10:', q10.x.toFixed(res),q10.y.toFixed(res), q10.z.toFixed(res), q10.w.toFixed(res));
+		console.log('converting q01 and q10 to matrices');
+		var q01_mat = new Matrix4();
+		var q10_mat = new Matrix4();
+		q01_mat.setFromQuat(q01.x, q01.y,q01.z,q01.w);
+		console.log('q01 as a matrix:')
+		q01_mat.printMe();
+		q10_mat.setFromQuat(q10.x, q10.y,q10.z,q10.w);
+		console.log('q10 as a matrix:')
+		q10_mat.printMe();
+
+		console.log('The rotation matrix from q01 matches R01, but q10 matrix does not match R10');
+		console.log('This is because matrix mutiplication is not transitive, and doing the reverse multiplication before converting leads to the inverse matrix of R01.')
+
+		//Can you now explain why the 'ControlMulti_COPY' starter code does not correctly rotate the 'wedge' 
+		//shape if you first rotate it around Y axis by 180 degrees (as we did in class on Friday Oct 14)? 
+
+		console.log('The wedge is not correctly rotated because rotating it by 180 degrees first makes the wedge face the back.')
+
+		// var myQuat = new Quaternion(1,2,3,4);		
+		// 	console.log('constructor: myQuat(x,y,z,w)=', 
+		// 	myQuat.x, myQuat.y, myQuat.z, myQuat.w);
+		// myQuat.clear();
+		// 	console.log('myQuat.clear()=', 
+		// 	myQuat.x.toFixed(res), myQuat.y.toFixed(res), 
+		// 	myQuat.z.toFixed(res), myQuat.w.toFixed(res));
+		// myQuat.set(1,2, 3,4);
+		// 	console.log('myQuat.set(1,2,3,4)=', 
+		// 	myQuat.x.toFixed(res), myQuat.y.toFixed(res), 
+		// 	myQuat.z.toFixed(res), myQuat.w.toFixed(res));
+		// 	console.log('myQuat.length()=', myQuat.length().toFixed(res));
+		// myQuat.normalize();
+		// 	console.log('myQuat.normalize()=', 
+		// 	myQuat.x.toFixed(res), myQuat.y.toFixed(res), myQuat.z.toFixed(res), myQuat.w.toFixed(res)); 
+
+
+
+		// 	// Simplest possible quaternions:
+		// myQuat.setFromAxisAngle(1,0,0,0);
+		// 	console.log('Set myQuat to 0-deg. rot. on x axis=',
+		// 	myQuat.x.toFixed(res), myQuat.y.toFixed(res), myQuat.z.toFixed(res), myQuat.w.toFixed(res));
+		// myQuat.setFromAxisAngle(0,1,0,0);
+		// 	console.log('set myQuat to 0-deg. rot. on y axis=',
+		// 	myQuat.x.toFixed(res), myQuat.y.toFixed(res), myQuat.z.toFixed(res), myQuat.w.toFixed(res));
+		// myQuat.setFromAxisAngle(0,0,1,0);
+		// 	console.log('set myQuat to 0-deg. rot. on z axis=',
+		// 	myQuat.x.toFixed(res), myQuat.y.toFixed(res), myQuat.z.toFixed(res), myQuat.w.toFixed(res), '\n');
+			
+		// myQmat = new Matrix4();
+		// myQuat.setFromAxisAngle(1,0,0, 90.0);	
+		// 	console.log('set myQuat to +90-deg rot. on x axis =',
+		// 	myQuat.x.toFixed(res), myQuat.y.toFixed(res), myQuat.z.toFixed(res), myQuat.w.toFixed(res));
+		// myQmat.setFromQuat(myQuat.x, myQuat.y, myQuat.z, myQuat.w);
+		// 	console.log('myQuat as matrix: (+y axis <== -z axis)(+z axis <== +y axis)');
+		// 	myQmat.printMe();
+		
+		// myQuat.setFromAxisAngle(0,1,0, 90.0);	
+		// 	console.log('set myQuat to +90-deg rot. on y axis =',
+		// 	myQuat.x.toFixed(res), myQuat.y.toFixed(res), myQuat.z.toFixed(res), myQuat.w.toFixed(res));
+		// myQmat.setFromQuat(myQuat.x, myQuat.y, myQuat.z, myQuat.w);
+		// 	console.log('myQuat as matrix: (+x axis <== +z axis)(+z axis <== -x axis)');
+		// 	myQmat.printMe();
+	
+		// myQuat.setFromAxisAngle(0,0,1, 90.0);	
+		// 	console.log('set myQuat to +90-deg rot. on z axis =',
+		// 	myQuat.x.toFixed(res), myQuat.y.toFixed(res), myQuat.z.toFixed(res), myQuat.w.toFixed(res));
+		// myQmat.setFromQuat(myQuat.x, myQuat.y, myQuat.z, myQuat.w);
+		// 	console.log('myQuat as matrix: (+x axis <== -y axis)(+y axis <== +x axis)');
+		// 	myQmat.printMe();
+	
+		// // Test quaternion multiply: 
+		// // (q1*q2) should rotate drawing axes by q1 and then by q2;  it does!
+		// var qx90 = new Quaternion;
+		// var qy90 = new Quaternion;
+		// qx90.setFromAxisAngle(1,0,0,90.0);			// +90 deg on x axis
+		// qy90.setFromAxisAngle(0,1,0,90.0);			// +90 deg on y axis.
+		// myQuat.multiply(qx90,qy90);
+		// 	console.log('set myQuat to (90deg x axis) * (90deg y axis) = ',
+		// 	myQuat.x.toFixed(res), myQuat.y.toFixed(res), myQuat.z.toFixed(res), myQuat.w.toFixed(res));
+		// myQmat.setFromQuat(myQuat.x, myQuat.y, myQuat.z, myQuat.w);
+		// console.log('myQuat as matrix: (+x <== +z)(+y <== +x )(+z <== +y');
+		// myQmat.printMe();
 	}
