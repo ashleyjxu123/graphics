@@ -13,7 +13,7 @@
 //			Vertex Buffer Object(VBO). 
 //		--create several canonical 3D shapes borrowed from 'GLUT' library:
 //		--Demonstrate how to make a 'stepped spiral' tri-strip,  and use it
-//			to build a cylinder, sphere, and torus.
+//			to build a cylinder, sphere, and torus. 
 //
 // Vertex shader program----------------------------------
 var VSHADER_SOURCE = 
