@@ -279,22 +279,20 @@ function drawAll() {
     g_modelMatrix.setIdentity();
     pushMatrix(g_modelMatrix);
 
+    var width = canvas.width/2;
+    var height = canvas.height * (2/3);
+    var aspect_ratio = width/height;
+    var z_near = 1.0;
+    var z_far = 50.0;
+
+    // GLOBAL VARS FOR: eye-point, up-vector, theta, deltaZ (camera - aim point)
+
     // left view port - perspective camera
-
     gl.viewport(0, 0, canvas.width/2, canvas.height * (2/3));
-
-
-
-    g_modelMatrix.perspective(35.0, canvas.width/canvas.height, 1.0, 500.0);
+    g_modelMatrix.perspective(35.0, aspect_ratio, z_near, z_far);
     g_modelMatrix.lookAt(5, 5, 3,
                       -1, -2, -0.5,
                       0, 0, 1);
-
-    var t = 500 - 1 / 3;
-    orthographicMatrix.ortho(-t, t, -t, t, 1.0, 500.0);
-    orthographicMatrix.lookAt(5, 5, 3,
-        -1, -2, -0.5,
-        0, 0, 1);
 
     drawAxes();
     drawGround();
@@ -304,8 +302,19 @@ function drawAll() {
 
     // right view port - ortho cam
     gl.viewport(canvas.width/2, 0, canvas.width/2, canvas.height * (2/3))
+    var z_ = (z_far - z_near)/3;  // far - near / 3?
+    var height = Math.tan(35.0/2) * z_; // TAN(fov/2) = height/z_ => height = z_ * tan(fov/2)
+    var width = height * aspect_ratio;
+    g_modelMatrix.setOrtho(-width, width, -height, height, z_near, z_far);
+    g_modelMatrix.lookAt(5, 5, 3,
+        -1, -2, -0.5,
+        0, 0, 1);
 
-
+    drawAxes();
+    drawGround();
+    drawMainAssembly();
+    drawCattailsAssembly();
+    drawBee();
 }
 
 function drawResize() {
