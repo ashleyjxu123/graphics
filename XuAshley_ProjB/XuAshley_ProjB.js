@@ -30,6 +30,8 @@ var canvas = document.getElementById('webgl');
 var g_vertsMax = 0;                 // number of vertices held in the VBO 
                                     // (global: replaces local 'n' variable)
 var g_modelMatrix = new Matrix4();  // Construct 4x4 matrix; contents get sent
+
+var orthographicMatrix = new Matrix4();
                                     // to the GPU/Shaders as a 'uniform' var.
 var g_modelMatLoc;                  // that uniform's location in the GPU
 
@@ -71,7 +73,7 @@ var yMdragTot=0.0;
 var qNew = new Quaternion(0,0,0,1); // most-recent mouse drag's rotation
 var qTot = new Quaternion(0,0,0,1);	// 'current' orientation (made from qNew)
 var quatMatrix = new Matrix4();				// rotation matrix, made from latest qTot
-								
+
 
 function main() {
 //==============================================================================
@@ -126,6 +128,8 @@ function main() {
     console.log('Failed to get the storage location of u_ModelMatrix');
     return;
   }
+
+  drawResize();
 
   // ANIMATION: create 'tick' variable whose value is this function:
   //----------------- 
@@ -270,22 +274,46 @@ function initVertexBuffer() {
 
 function drawAll() {
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-        clrColr = new Float32Array(4);
-        clrColr = gl.getParameter(gl.COLOR_CLEAR_VALUE);
+        // clrColr = new Float32Array(4);
+        // clrColr = gl.getParameter(gl.COLOR_CLEAR_VALUE);
     g_modelMatrix.setIdentity();
     pushMatrix(g_modelMatrix);
 
-    g_modelMatrix.perspective(42.0, 1.0, 1.0, 1000.0);
-  
+    // left view port - perspective camera
+
+    gl.viewport(0, 0, canvas.width/2, canvas.height * (2/3));
+
+
+
+    g_modelMatrix.perspective(35.0, canvas.width/canvas.height, 1.0, 500.0);
     g_modelMatrix.lookAt(5, 5, 3,
                       -1, -2, -0.5,
                       0, 0, 1);
+
+    var t = 500 - 1 / 3;
+    orthographicMatrix.ortho(-t, t, -t, t, 1.0, 500.0);
+    orthographicMatrix.lookAt(5, 5, 3,
+        -1, -2, -0.5,
+        0, 0, 1);
 
     drawAxes();
     drawGround();
     drawMainAssembly();
     drawCattailsAssembly();
     drawBee();
+
+    // right view port - ortho cam
+    gl.viewport(canvas.width/2, 0, canvas.width/2, canvas.height * (2/3))
+
+
+}
+
+function drawResize() {
+    console.log("resized!!", canvas.width, canvas.height);
+    var xtraMargin = 16;    // keep a margin (otherwise, browser adds scroll-bars)
+	canvas.width = innerWidth - xtraMargin;
+	canvas.height = (innerHeight*2/3) - xtraMargin;
+    drawAll();
 }
 
 function drawAxes() {
