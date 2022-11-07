@@ -38,7 +38,7 @@ var g_modelMatLoc;                  // that uniform's location in the GPU
 //------------For Animation---------------------------------------------
 var g_isRun = true;                 // run/stop for animation; used in tick().
 var g_lastMS = Date.now();    			// Timestamp for most-recently-drawn image; 
-                                    // in milliseconds; used by 'animate()' fcn 
+                                    // in milliseconds; used by 'b()' fcn 
                                     // (now called 'timerAll()' ) to find time
                                     // elapsed since last on-screen image.
 var g_angle01 = 0;                  // initial rotation angle
@@ -63,6 +63,9 @@ var delta = 0.1;
 
 var floatsPerVertex = 7;
 
+var g_bounce = 0.0;
+var bounceRate = 0.01;
+
 //------------For mouse click-and-drag: -------------------------------
 var isDrag=false;		// mouse-drag: true when user holds down mouse button
 var xMclik=0.0;			// last mouse button-down position (in CVV coords)
@@ -74,6 +77,27 @@ var qNew = new Quaternion(0,0,0,1); // most-recent mouse drag's rotation
 var qTot = new Quaternion(0,0,0,1);	// 'current' orientation (made from qNew)
 var quatMatrix = new Matrix4();				// rotation matrix, made from latest qTot
 
+// For camera aim movement
+var eye = [4.0, 3.38, 4.05];
+var up = [0, 0, 1];
+var aim = [0, 0, 0];
+
+var camPhi = 0.2173 * Math.PI;
+var camTheta = 1.3 * Math.PI;
+
+var lookingVert = 0.0;
+var lookingHoriz = 0.0;
+var movingStraight = 0.0;
+var movingSide = 0.0;
+var movingVert = 0.0;
+var vel = 0.05;
+var camvel = 0.05;
+//   g_modelMatrix.lookAt(5, 5, 3,
+// -1, -2, -0.5,
+// 0, 0, 1);
+
+var g_angleNow = 0.0;
+var ANGLE_STEP = 25.0;
 
 function main() {
 //==============================================================================
@@ -106,6 +130,7 @@ function main() {
 	window.addEventListener("dblclick", myMouseDblClick); 
 
     window.addEventListener("keydown", myKeyDown, false);
+    window.addEventListener("keyup", myKeyUp, false);
 	// After each 'keydown' event, call the 'myKeyDown()' function.  The 'false' 
 	// arg (default) ensures myKeyDown() call in 'bubbling', not 'capture' stage)
 	// ( https://www.w3schools.com/jsref/met_document_addeventlistener.asp )
@@ -282,38 +307,44 @@ function drawAll() {
     var width = canvas.width/2;
     var height = canvas.height * (2/3);
     var aspect_ratio = width/height;
-    var z_near = 1.0;
-    var z_far = 50.0;
+    var z_near = .1;
+    var z_far = 50;
 
     // GLOBAL VARS FOR: eye-point, up-vector, theta, deltaZ (camera - aim point)
 
     // left view port - perspective camera
     gl.viewport(0, 0, canvas.width/2, canvas.height * (2/3));
     g_modelMatrix.perspective(35.0, aspect_ratio, z_near, z_far);
-    g_modelMatrix.lookAt(5, 5, 3,
-                      -1, -2, -0.5,
-                      0, 0, 1);
+    g_modelMatrix.lookAt(eye[0], eye[1], eye[2],
+                      aim[0], aim[1], aim[2],
+                      up[0], up[1], up[2]);
+
+                      // point camera 45 angle down towards ground
 
     drawAxes();
     drawGround();
     drawMainAssembly();
     drawCattailsAssembly();
+    drawCattails();
+    drawFrog();
     drawBee();
-
     // right view port - ortho cam
+    g_modelMatrix = popMatrix();
     gl.viewport(canvas.width/2, 0, canvas.width/2, canvas.height * (2/3))
-    var z_ = (z_far - z_near)/3;  // far - near / 3?
-    var height = Math.tan(35.0/2) * z_; // TAN(fov/2) = height/z_ => height = z_ * tan(fov/2)
+    var z_ = (z_far - z_near)/3;  // far - near / 3
+    var height = Math.tan(35.0/2 * Math.PI/360) * z_; // TAN(fov/2) = height/z_ => height = z_ * tan(fov/2)
     var width = height * aspect_ratio;
     g_modelMatrix.setOrtho(-width, width, -height, height, z_near, z_far);
-    g_modelMatrix.lookAt(5, 5, 3,
-        -1, -2, -0.5,
-        0, 0, 1);
+    g_modelMatrix.lookAt(eye[0], eye[1], eye[2],
+        aim[0], aim[1], aim[2],
+        up[0], up[1], up[2]);
 
     drawAxes();
     drawGround();
     drawMainAssembly();
     drawCattailsAssembly();
+    drawCattails();
+    drawFrog();
     drawBee();
 }
 
@@ -323,6 +354,40 @@ function drawResize() {
 	canvas.width = innerWidth - xtraMargin;
 	canvas.height = (innerHeight*2/3) - xtraMargin;
     drawAll();
+}
+
+function drawCattails() {
+    pushMatrix(g_modelMatrix);
+    g_modelMatrix.rotate(90, 1, 0, 0);
+    g_modelMatrix.translate(2.0, 1.0, 3.0);
+    gl.uniformMatrix4fv(g_modelMatLoc, false, g_modelMatrix.elements);
+
+    gl.drawArrays(gl.TRIANGLES, 
+        cattailLeafStart/floatsPerVertex,
+        cattailLeafVerts.length/floatsPerVertex);
+
+    g_modelMatrix.translate(0.1, 0.0, 0.0);
+    gl.uniformMatrix4fv(g_modelMatLoc, false, g_modelMatrix.elements);
+
+    gl.drawArrays(gl.TRIANGLES, 
+            cattailStart/floatsPerVertex,
+            cattailVerts.length/floatsPerVertex);
+
+    g_modelMatrix = popMatrix();
+}
+
+function drawFrog() {
+    pushMatrix(g_modelMatrix);
+    g_modelMatrix.rotate(90, 1, 0, 0);
+    g_modelMatrix.translate(0.0, 0.0, g_bounce);
+    g_modelMatrix.scale(0.2, 0.2, 0.2);
+    gl.uniformMatrix4fv(g_modelMatLoc, false, g_modelMatrix.elements);
+
+    gl.drawArrays(gl.TRIANGLES, 
+        frogStart/floatsPerVertex,
+        frogVerts.length/floatsPerVertex);
+
+    g_modelMatrix = popMatrix();
 }
 
 function drawAxes() {
@@ -438,8 +503,6 @@ function drawBee() {
         beeWingStart/floatsPerVertex,                     // start at vertex 12,
         beeWingVerts.length/floatsPerVertex);
 
-    g_modelMatrix = popMatrix();
-
 }
 
 function drawGround() {
@@ -505,11 +568,15 @@ function animate() {
   var rand = Math.random() * 2;
   var elapsed = now - g_last;
   g_last = now;
+
+  // Camera updates
+
+  g_angleNow += (ANGLE_STEP * elapsed) / 1000.0;
+  g_angleNow = g_angleNow % 360;
   
-  // Update the current rotation angle (adjusted by the elapsed time)
-  //  limit the angle to move smoothly between +120 and -85 degrees:
-//  if(angle >  120.0 && g_angle01Rate > 0) g_angle01Rate = -g_angle01Rate;
-//  if(angle <  -85.0 && g_angle01Rate < 0) g_angle01Rate = -g_angle01Rate;
+  g_bounce = g_bounce + bounceRate;
+  if(g_bounce > 5.0) bounceRate *= -1;
+  if(g_bounce <= 0.0) bounceRate *= -1;
   
   g_angle01 = g_angle01 + (g_angle01Rate * elapsed) / 1000.0;
   if(g_angle01 > 180.0) g_angle01 = g_angle01 - 360.0;
@@ -720,56 +787,134 @@ function myMouseDown(ev, gl, canvas) {
     console.log("myMouse-DOUBLE-Click() on button: ", ev.button); 
   }	
 
+  function camMovement(){
+    camPhi += lookingHoriz * camvel;
+    camTheta += lookingVert * camvel;
+    var straight = movingStraight * vel;
+    var side = movingSide * vel;
+    var vert  = movingVert * vel;
+  
+    var camdiffX = (straight * Math.cos(camPhi)) - (side * Math.sin(camPhi));
+    var camdiffY = (straight * Math.sin(camPhi)) + (side * Math.cos(camPhi));
+    var camdiffZ = (straight * (Math.cos(Math.PI - camTheta))) + vert;
+  
+    eye[0] += camdiffX;
+    eye[1] += camdiffY;
+    eye[2] += camdiffZ;
+
+    var aimdiffX = Math.cos(camPhi) * Math.sin(camTheta);
+    var aimdiffY = Math.sin(camPhi) * Math.sin(camTheta);
+    var aimdiffZ = Math.cos(camTheta);
+  
+    aim[0] = eye[0] + aimdiffX;
+    aim[1] = eye[1] + aimdiffY;
+    aim[2] = eye[2] + aimdiffZ;
+  }
+
   function myKeyDown(kev) {
-    //===============================================================================
-    // Called when user presses down ANY key on the keyboard;
-    //
-    // For a light, easy explanation of keyboard events in JavaScript,
-    // see:    http://www.kirupa.com/html5/keyboard_events_in_javascript.htm
-    // For a thorough explanation of a mess of JavaScript keyboard event handling,
-    // see:    http://javascript.info/tutorial/keyboard-events
-    //
-    // NOTE: Mozilla deprecated the 'keypress' event entirely, and in the
-    //        'keydown' event deprecated several read-only properties I used
-    //        previously, including kev.charCode, kev.keyCode. 
-    //        Revised 2/2019:  use kev.key and kev.code instead.
-    //
-    // Report EVERYTHING in console:
       console.log(  "--kev.code:",    kev.code,   "\t\t--kev.key:",     kev.key, 
                   "\n--kev.ctrlKey:", kev.ctrlKey,  "\t--kev.shiftKey:",kev.shiftKey,
                   "\n--kev.altKey:",  kev.altKey,   "\t--kev.metaKey:", kev.metaKey);
-    
-    // and report EVERYTHING on webpage:
-      // document.getElementById('KeyDownResult').innerHTML = ''; // clear old results
+
       switch(kev.code) {
+        // W/A/S/D to move camera
+        case "KeyW":
+            console.log(' W key');
+            movingStraight = -1.0;
+            camMovement();
+            drawAll();
+            break;
+        case "KeyA":
+            console.log(' A key ');
+            movingSide = -1.0;
+            camMovement();
+            drawAll();
+            break;
+        case "KeyS":
+            console.log(' S key ');
+            movingStraight = 1.0;
+            camMovement();
+            drawAll();
+            break;
+
+        case "KeyD":
+            console.log('D key');
+            movingSide = 1.0;
+            camMovement();
+            drawAll();
+            break;
         //----------------Arrow keys------------------------
         case "ArrowLeft": 	
           console.log(' left-arrow.');
-          // and print on webpage in the <div> element with id='Result':
-          // document.getElementById('KeyDownResult').innerHTML =
-          //   'myKeyDown(): Left Arrow='+kev.keyCode;
+          lookingHoriz = 1.0;
+          camMovement();
 
-          if (g_x01 >= -1.0) g_x01 -= delta;
           break;
         case "ArrowRight":
           console.log('right-arrow.');
-          // document.getElementById('KeyDownResult').innerHTML =
-          //   'myKeyDown():Right Arrow:keyCode='+kev.keyCode;
+          lookingHoriz = -1.0;
+          camMovement();
 
-          if (g_x01 <= 1.0) g_x01 += delta;
           break;
         case "ArrowUp":		
           console.log('   up-arrow.');
-          // document.getElementById('KeyDownResult').innerHTML =
-          //   'myKeyDown():   Up Arrow:keyCode='+kev.keyCode;
+          lookingVert = 1.0;
+          camMovement();
 
-          if (g_y01 <= 1.0) g_y01 += delta;
           break;
         case "ArrowDown":
           console.log(' down-arrow.');
+          lookingVert = -1.0;
+          camMovement();
+          break;	
+        default:
+          console.log("UNUSED!");
           // document.getElementById('KeyDownResult').innerHTML =
-          //   'myKeyDown(): Down Arrow:keyCode='+kev.keyCode;
-          if (g_x01 >= -1.0) g_y01 -= delta;
+          //   'Please only press arrow keys.';
+          break;
+      }
+    }
+
+    function myKeyUp(kev){
+        switch(kev.code) {
+        // W/A/S/D to move camera
+        case "KeyW":
+            console.log(' W key');
+            movingStraight = 0.0;
+            drawAll();
+            break;
+        case "KeyA":
+            console.log(' A key ');
+            movingSide = 0.0;
+            drawAll();
+            break;
+        case "KeyS":
+            console.log(' S key ');
+            movingStraight = 0.0;
+            drawAll();
+            break;
+
+        case "KeyD":
+            console.log('D key');
+            movingSide = 0.0;
+            drawAll();
+            break;
+        //----------------Arrow keys------------------------
+        case "ArrowLeft": 	
+          console.log(' left-arrow.');
+          lookingHoriz = 0.0;
+          break;
+        case "ArrowRight":
+          console.log('right-arrow.');
+          lookingHoriz = 0.0;
+          break;
+        case "ArrowUp":		
+          console.log('   up-arrow.');
+          lookingVert = 0.0;
+          break;
+        case "ArrowDown":
+          console.log(' down-arrow.');
+          lookingVert = 0.0;
           break;	
         default:
           console.log("UNUSED!");
