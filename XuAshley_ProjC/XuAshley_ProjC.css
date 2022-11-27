@@ -1,0 +1,12 @@
+* {
+    background-color: lightsalmon;
+}
+body {
+    font-family: Verdana, Geneva, Tahoma, sans-serif;
+    margin: 0;
+}
+
+#instructions {
+    padding-left: 20px;
+    padding-top: 20px;
+}

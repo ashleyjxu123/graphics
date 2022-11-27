@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>XuAshley_Activity4</title>
+  </head>
+	<!--	Create the HTML5 'canvas' element in which we will run WebGL  -->
+  <body onload="main()">
+    <canvas id="webgl" width="300" height="300">
+    Please use a browser that supports "canvas"
+    </canvas>
+
+
+<hr> <!-- Draw a horizontal-line separator------------->
+	<b>The teddy bear is "shivering" along the z-axis in a sine-wave distortion</b>
+
+	<!--  Mouse click/drag amounts.  Look in 'console' for event reports;
+			the 'clear' button calls Javascript function 'clearDrag()'
+			whose sole purpose is to set global vars xMdragTot,yMdragTot ==0.0
+		  Note we use these totals to rotate the triangle at upper left.
+	-->
+
+	<!--	Load in the JavaScript libraries supplied by our textbook 
+			(Matsuda et al., 2013 WebGL Programming Guide) that help us
+			with WebGL programming:
+	-->
+    <script src="lib/webgl-utils.js"></script>
+    <script src="lib/webgl-debug.js"></script>
+    <script src="lib/cuon-utils.js"></script>
+    <script src="lib/cuon-matrix-quat03.js"></script>
+	<!--	Finally, load in our own JavaScript program file.
+	-->
+    <script src="XuAshley_Activity4.js"></script>
+  </body>
+</html>
