@@ -1,22 +1,52 @@
 // Vertex shader program----------------------------------
 var VSHADER_SOURCE = 
- `uniform mat4 u_ModelMatrix;
-  attribute vec4 a_Position;
-  attribute vec4 a_Color;
-  varying vec4 v_Color;
-  void main() {
-    gl_Position = u_ModelMatrix * a_Position;
-    gl_PointSize = 10.0;
-    v_Color = a_Color;
-  }`
+`uniform mat4 u_ModelMatrix;
+attribute vec4 a_Position;
+attribute vec4 a_Normal;
+uniform vec3 u_Kd;
+uniform mat4 u_MvpMatrix;
+uniform mat4 u_NormalMatrix;
+varying vec3 v_Kd;
+varying vec4 v_Position;
+varying vec3 v_Normal
+void main() {
+  gl_Position =  u_MvpMatrix * a_Position;
+  v_Position = u_ModelMatrix * a_Position;
+  v_Normal = normalize(vec3(u_NormalMatrix * a_Normal));
+  v_Kd = u_Kd;
+}`
 
 // Fragment shader program----------------------------------
 var FSHADER_SOURCE = 
- `precision mediump float;
-  varying vec4 v_Color;
-  void main() {
-    gl_FragColor = v_Color;
-  }`
+'#ifdef GL_ES\n' +
+'precision mediump float;\n' +
+'#endif\n' +
+`uniform vec4 u_Lamp0Pos;
+uniform vec3 u_Lamp0Amb;
+uniform vec3 u_Lamp0Diff;
+uniform vec3 u_Lamp0Spec;
+uniform vec3 u_Ke;
+uniform vec3 u_Ka;
+uniform vec3 u_Ks;
+uniform int u_Kshiny;
+uniform vec4 u_eyePosWorld;
+varying vec3 v_Normal;
+varying vec4 v_Position;
+varying vec3 v_Kd;
+void main() {
+  vec3 normal = normalize(v_Normal);
+  vec3 lightDirection = normalize(u_Lamp0Pos.xyz - v_Position.xyz);
+  vec3 eyeDirection = normalize(u_eyePosWorld.xyz - v_Position.xyz);
+  float nDotL = max(dot(lightDirection, normal), 0.0);
+  vec3 H = normalize(lightDirection + eyeDirection);
+  float nDotH = max(dot(H, normal), 0.0);
+  float e64 = pow(nDotH, float(u_Kshiny));
+  vec3 emissive = u_Ke;
+  vec3 ambient = u_Lamp0Amb * u_Ka;
+  vec3 diffuse = u_Lamp0Diff * v_Kd * nDotL;
+  vec3 speculr = u_Lamp0Spec * u_Ks * e64;
+  gl_FragColor = vec4(emissive + ambient + diffuse + speculr , 1.0);
+}`
 
 // Global Variables
 // =========================
@@ -99,6 +129,45 @@ var camvel = 0.05;
 var g_angleNow = 0.0;
 var ANGLE_STEP = 25.0;
 
+// ----- for lighitng/shading
+// for world
+var uLoc_eyePosWorld = false;
+var uLoc_ModelMatrix = false;
+var uLoc_MvpMatrix = false;
+var uLoc_NormalMatrix = false;
+
+var modelMatrix = new Matrix4();  // Model matrix
+var mvpMatrix = new Matrix4();	// Model-view-projection matrix
+var normalMatrix = new Matrix4();	// Transformation matrix for normals
+
+var SHADING_PHONG = 0;
+var SHADING_GOURAUD = 1;
+var LIGHTING_BLINNPHONG = 0;
+var LIGHTING_PHONG = 1;
+var shadingSel = SHADING_PHONG;
+var lightingSel = LIGHTING_BLINNPHONG;
+
+var worldBox;
+var phong_blinnBox;
+var phong_phongBox;
+var gouraud_blinnBox;
+var gouraud_phongBox;
+
+var light0X;
+var light0Y;
+var light0Z;
+var light0Ambi;
+var light0Diff;
+var light0Spec;
+
+var matlSel0 = MATL_RED_PLASTIC;
+var matlSel1 = MATL_RED_PLASTIC;
+var g_matl0 = new Material(matlSel0);
+var g_matl1 = new Material(matlSel1);
+
+var g_lamp0 = new LightsT();
+
+
 function main() {
 //==============================================================================
   
@@ -142,17 +211,26 @@ function main() {
   // Specify the color for clearing <canvas>
   gl.clearColor(0.0, 0.0, 0.0, 1.0);
 
-	// NEW!! Enable 3D depth-test when drawing: don't over-draw at any pixel 
-	// unless the new Z value is closer to the eye than the old one..
-	gl.depthFunc(gl.LESS);
 	gl.enable(gl.DEPTH_TEST); 	  
 	
-  // Get handle to graphics system's storage location of u_ModelMatrix
-  g_modelMatLoc = gl.getUniformLocation(gl.program, 'u_ModelMatrix');
-  if (!g_modelMatLoc) { 
-    console.log('Failed to get the storage location of u_ModelMatrix');
-    return;
-  }
+  // // Get handle to graphics system's storage location of u_ModelMatrix
+  // g_modelMatLoc = gl.getUniformLocation(gl.program, 'u_ModelMatrix');
+  // if (!g_modelMatLoc) { 
+  //   console.log('Failed to get the storage location of u_ModelMatrix');
+  //   return;
+  // } 
+  
+  // worldBox = new VBObox0();
+  // phong_blinnBox = new VBObox1();
+  // gouraud_blinnBox = new VBObox2();
+  // phong_phongBox = new VBObox3();
+  // gouraud_phongBox = new VBObox4();
+  // worldBox.init(gl);
+  // phong_blinnBox.init(gl);
+  // gouraud_blinnBox.init(gl);
+  // phong_phongBox.init(gl);
+  // gouraud_phongBox.init(gl);
+
 
   drawResize();
 
@@ -161,8 +239,6 @@ function main() {
   var tick = function() {
     animate();   // Update the rotation angle
     drawAll();
-    // drawMainAssembly();
-    // drawCattails();
 
 		//--------------------------------
     requestAnimationFrame(tick, canvas);   
@@ -301,23 +377,55 @@ function drawAll() {
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
         // clrColr = new Float32Array(4);
         // clrColr = gl.getParameter(gl.COLOR_CLEAR_VALUE);
-    g_modelMatrix.setIdentity();
-    pushMatrix(g_modelMatrix);
+    // g_modelMatrix.setIdentity();
+    // pushMatrix(g_modelMatrix);
 
-    var width = canvas.width;
-    var height = canvas.height * (2/3);
+    var width = gl.canvas.width;
+    var height = gl.canvas.height * (2/3);
     var aspect_ratio = width/height;
-    var z_near = .1;
-    var z_far = 50;
+    var z_near = 1;
+    var z_far = 1000;
 
     // GLOBAL VARS FOR: eye-point, up-vector, theta, deltaZ (camera - aim point)
 
     // left view port - perspective camera
-    gl.viewport(0, 0, canvas.width, canvas.height * (2/3));
-    g_modelMatrix.perspective(30.0, aspect_ratio, z_near, z_far);
-    g_modelMatrix.lookAt(eye[0], eye[1], eye[2],
+    gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+    mvpMatrix.setPerspective(30.0, aspect_ratio, z_near, z_far);
+    mvpMatrix.lookAt(eye[0], eye[1], eye[2],
                       aim[0], aim[1], aim[2],
                       up[0], up[1], up[2]);
+
+    modelMatrix.set(mvpMatrix);
+
+    normalMatrix.setInverseOf(modelMatrix);
+    normalMatrix.transpose();
+
+    // worldBox.switchToMe();
+    // worldBox.adjust();
+    // worldBox.draw();
+
+    // if (shadingSel == SHADING_PHONG) {
+    //   if (lightingSel == LIGHTING_BLINNPHONG) {
+    //     phong_blinnBox.switchToMe();
+    //     phong_blinnBox.adjust();
+    //     phong_blinnBox.draw();
+    //   } else if (lightingSel == LIGHTING_PHONG) {
+    //     phong_phongBox.switchToMe();
+    //     phong_phongBox.adjust();
+    //     phong_phongBox.draw();
+    //   }
+    // }
+    // if (shadingSel == SHADING_GOURAUD) {
+    //   if (lightingSel == LIGHTING_BLINNPHONG) {
+    //     gouraud_blinnBox.switchToMe();
+    //     gouraud_blinnBox.adjust();
+    //     gouraud_blinnBox.draw();
+    //   } else if (lightingSel == LIGHTING_PHONG) {
+    //     gouraud_phongBox.switchToMe();
+    //     gouraud_phongBox.adjust();
+    //     gouraud_phongBox.draw();
+    //   }
+    // }
 
                       // point camera 45 angle down towards ground
 
@@ -331,9 +439,9 @@ function drawAll() {
 
 function drawResize() {
     console.log("resized!!", canvas.width, canvas.height);
-    var xtraMargin = 16;    // keep a margin (otherwise, browser adds scroll-bars)
-	canvas.width = innerWidth - xtraMargin;
-	canvas.height = (innerHeight*2/3) - xtraMargin;
+    var xtraMargin = 20;    // keep a margin (otherwise, browser adds scroll-bars)
+	gl.canvas.width = innerWidth - xtraMargin;
+	gl.canvas.height = (innerHeight*2/3) - xtraMargin;
     drawAll();
 }
 
@@ -452,8 +560,10 @@ function drawBee() {
     g_modelMatrix.translate(3.0, 0.0, 1.0);
     g_modelMatrix.scale(0.3, 0.3, 0.3);
 
-    quatMatrix.setFromQuat(qTot.x, qTot.y, qTot.z, qTot.w);	// Quaternion-->Matrix
-	g_modelMatrix.concat(quatMatrix);
+  //   quatMatrix.setFromQuat(qTot.x, qTot.y, qTot.z, qTot.w);	// Quaternion-->Matrix
+	// g_modelMatrix.concat(quatMatrix);
+
+    g_modelMatrix.translate(0.0, 0.0, g_bounce);
 
     gl.uniformMatrix4fv(g_modelMatLoc, false, g_modelMatrix.elements);
     gl.drawArrays(gl.TRIANGLES, beeBodyStart/floatsPerVertex,
