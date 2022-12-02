@@ -105,6 +105,7 @@ As each 'VBObox' object can contain:
 //=============================================================================
 //=============================================================================
 function VBObox0() {
+
 	this.VERT_SRC =	//--------------------- VERTEX SHADER source code 
   'precision highp float;\n' +				// req'd in OpenGL ES if we use 'float'
   //
@@ -118,34 +119,67 @@ function VBObox0() {
   '	 v_Colr0 = a_Colr0;\n' +
   ' }\n';
 
+
 	this.FRAG_SRC = //---------------------- FRAGMENT SHADER source code 
   'precision mediump float;\n' +
   'varying vec3 v_Colr0;\n' +
   'void main() {\n' +
   '  gl_FragColor = vec4(v_Colr0, 1.0);\n' + 
   '}\n';
+    
+    var xcount = 100;			// # of lines to draw in x,y to make the grid.
+    var ycount = 100;		
+    var xymax	= 50.0;			// grid size; extends to cover +/-xymax in x and y.
+      var xColr = new Float32Array([1.0, 1.0, 0.3]);	// bright yellow
+      var yColr = new Float32Array([0.5, 1.0, 0.5]);	// bright green.
+      
+    // Create an (global) array to hold this ground-plane's vertices:
+    this.vboContents = new Float32Array(7*2*(xcount+ycount));
+                        // draw a grid made of xcount+ycount lines; 2 vertices per line.
+                        
+    var xgap = xymax/(xcount-1);		// HALF-spacing between lines in x,y;
+    var ygap = xymax/(ycount-1);		// (why half? because v==(0line number/2))
+    
+    // First, step thru x values as we make vertical lines of constant-x:
+    for(v=0, j=0; v<2*xcount; v++, j+= floatsPerVertex) {
+        if(v%2==0) {	// put even-numbered vertices at (xnow, -xymax, 0)
+            this.vboContents[j  ] = -xymax + (v  )*xgap;	// x
+            this.vboContents[j+1] = -xymax;								// y
+            this.vboContents[j+2] = 0.0;									// z
+            this.vboContents[j+3] = 1.0;									// w.
+        }
+        else {				// put odd-numbered vertices at (xnow, +xymax, 0).
+            this.vboContents[j  ] = -xymax + (v-1)*xgap;	// x
+            this.vboContents[j+1] = xymax;								// y
+            this.vboContents[j+2] = 0.0;									// z
+            this.vboContents[j+3] = 1.0;									// w.
+        }
+        this.vboContents[j+4] = xColr[0];			// red
+        this.vboContents[j+5] = xColr[1];			// grn
+        this.vboContents[j+6] = xColr[2];			// blu
+    }
+    // Second, step thru y values as wqe make horizontal lines of constant-y:
+    // (don't re-initialize j--we're adding more vertices to the array)
+    for(v=0; v<2*ycount; v++, j+= floatsPerVertex) {
+        if(v%2==0) {		// put even-numbered vertices at (-xymax, ynow, 0)
+            this.vboContents[j  ] = -xymax;								// x
+            this.vboContents[j+1] = -xymax + (v  )*ygap;	// y
+            this.vboContents[j+2] = 0.0;									// z
+            this.vboContents[j+3] = 1.0;									// w.
+        }
+        else {					// put odd-numbered vertices at (+xymax, ynow, 0).
+            this.vboContents[j  ] = xymax;								// x
+            this.vboContents[j+1] = -xymax + (v-1)*ygap;	// y
+            this.vboContents[j+2] = 0.0;									// z
+            this.vboContents[j+3] = 1.0;									// w.
+        }
+        this.vboContents[j+4] = yColr[0];			// red
+        this.vboContents[j+5] = yColr[1];			// grn
+        this.vboContents[j+6] = yColr[2];			// blu
+    }
 
-	this.vboContents = //---------------------------------------------------------
-	new Float32Array ([						// Array of vertex attribute values we will
-  															// transfer to GPU's vertex buffer object (VBO)
-	// 1st triangle:
-  	 0.0,	 0.0,	0.0, 1.0,		1.0, 1.0, 1.0, //1 vertex:pos x,y,z,w; color: r,g,b  X AXIS
-     1.0,  0.0, 0.0, 1.0,		1.0, 0.0, 0.0,
-     
-  	 0.0,	 0.0,	0.0, 1.0,		1.0, 1.0, 1.0, // Y AXIS
-     0.0,  1.0, 0.0, 1.0,		0.0, 1.0, 0.0,
-     
-  	 0.0,	 0.0,	0.0, 1.0,		1.0, 1.0, 1.0, // Z AXIS
-     0.0,  0.0, 1.0, 1.0,		0.0, 0.2, 1.0,
-     
-     // 2 long lines of the ground grid:
-  	 -100.0,   0.2,	0.0, 1.0,		1.0, 0.2, 0.0, // horiz line
-      100.0,   0.2, 0.0, 1.0,		0.0, 0.2, 1.0,
-  	  0.2,	-100.0,	0.0, 1.0,		0.0, 1.0, 0.0, // vert line
-      0.2,   100.0, 0.0, 1.0,		1.0, 0.0, 1.0,
-		 ]);
 
-	this.vboVerts = 10;						// # of vertices held in 'vboContents' array
+	this.vboVerts = this.vboContents.length / 7;						// # of vertices held in 'vboContents' array
 	this.FSIZE = this.vboContents.BYTES_PER_ELEMENT;
   this.vboBytes = this.vboContents.length * this.FSIZE; 
 	this.vboStride = this.vboBytes / this.vboVerts; 
