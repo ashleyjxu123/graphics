@@ -1,52 +1,122 @@
 // Vertex shader program----------------------------------
 var VSHADER_SOURCE = 
-`uniform mat4 u_ModelMatrix;
-attribute vec4 a_Position;
-attribute vec4 a_Normal;
-uniform vec3 u_Kd;
-uniform mat4 u_MvpMatrix;
-uniform mat4 u_NormalMatrix;
-varying vec3 v_Kd;
-varying vec4 v_Position;
-varying vec3 v_Normal
-void main() {
-  gl_Position =  u_MvpMatrix * a_Position;
-  v_Position = u_ModelMatrix * a_Position;
-  v_Normal = normalize(vec3(u_NormalMatrix * a_Normal));
-  v_Kd = u_Kd;
-}`
+	//--------------- GLSL Struct Definitions:
+	'struct MatlT {\n' +		// Describes one Phong material by its reflectances:
+	'		vec3 emit;\n' +			// Ke: emissive -- surface 'glow' amount (r,g,b);
+	'		vec3 ambi;\n' +			// Ka: ambient reflectance (r,g,b)
+	'		vec3 diff;\n' +			// Kd: diffuse reflectance (r,g,b)
+	'		vec3 spec;\n' + 		// Ks: specular reflectance (r,g,b)
+	'		int shiny;\n' +			// Kshiny: specular exponent (integer >= 1; typ. <200)
+  '		};\n' +
+  //																
+	//-------------ATTRIBUTES of each vertex, read from our Vertex Buffer Object
+  'attribute vec4 a_Position; \n' +		// vertex position (model coord sys)
+  'attribute vec4 a_Normal; \n' +			// vertex normal vector (model coord sys)
+
+										
+	//-------------UNIFORMS: values set from JavaScript before a drawing command.
+// 	'uniform vec3 u_Kd; \n' +						// Phong diffuse reflectance for the 
+ 																			// entire shape. Later: as vertex attrib.
+	'uniform MatlT u_MatlSet[1];\n' +		// Array of all materials.
+  'uniform mat4 u_MvpMatrix; \n' +
+  'uniform mat4 u_ModelMatrix; \n' + 		// Model matrix
+  'uniform mat4 u_NormalMatrix; \n' +  	// Inverse Transpose of ModelMatrix;
+  																			// (won't distort normal vec directions
+  																			// but it usually WILL change its length)
+  
+	//-------------VARYING:Vertex Shader values sent per-pixel to Fragment shader:
+	'varying vec3 v_Kd; \n' +							// Phong Lighting: diffuse reflectance
+																				// (I didn't make per-pixel Ke,Ka,Ks;
+																				// we use 'uniform' values instead)
+  'varying vec4 v_Position; \n' +				
+  'varying vec3 v_Normal; \n' +					// Why Vec3? its not a point, hence w==0
+	//-----------------------------------------------------------------------------
+  'void main() { \n' +
+		// Compute CVV coordinate values from our given vertex. This 'built-in'
+		// 'varying' value gets interpolated to set screen position for each pixel.
+  '  gl_Position = u_MvpMatrix * a_Position;\n' +
+		// Calculate the vertex position & normal vec in the WORLD coordinate system
+		// for use as a 'varying' variable: fragment shaders get per-pixel values
+		// (interpolated between vertices for our drawing primitive (TRIANGLE)).
+  '  v_Position = u_ModelMatrix * a_Position; \n' +
+		// 3D surface normal of our vertex, in world coords.  ('varying'--its value
+		// gets interpolated (in world coords) for each pixel's fragment shader.
+  '  v_Normal = normalize(vec3(u_NormalMatrix * a_Normal));\n' +
+	'	 v_Kd = u_MatlSet[0].diff; \n' +		// find per-pixel diffuse reflectance from per-vertex
+													// (no per-pixel Ke,Ka, or Ks, but you can do it...)
+//	'  v_Kd = vec3(1.0, 1.0, 0.0); \n'	+ // TEST; color fixed at green
+  '}\n';
 
 // Fragment shader program----------------------------------
 var FSHADER_SOURCE = 
-'#ifdef GL_ES\n' +
-'precision mediump float;\n' +
-'#endif\n' +
-`uniform vec4 u_Lamp0Pos;
-uniform vec3 u_Lamp0Amb;
-uniform vec3 u_Lamp0Diff;
-uniform vec3 u_Lamp0Spec;
-uniform vec3 u_Ke;
-uniform vec3 u_Ka;
-uniform vec3 u_Ks;
-uniform int u_Kshiny;
-uniform vec4 u_eyePosWorld;
-varying vec3 v_Normal;
-varying vec4 v_Position;
-varying vec3 v_Kd;
-void main() {
-  vec3 normal = normalize(v_Normal);
-  vec3 lightDirection = normalize(u_Lamp0Pos.xyz - v_Position.xyz);
-  vec3 eyeDirection = normalize(u_eyePosWorld.xyz - v_Position.xyz);
-  float nDotL = max(dot(lightDirection, normal), 0.0);
-  vec3 H = normalize(lightDirection + eyeDirection);
-  float nDotH = max(dot(H, normal), 0.0);
-  float e64 = pow(nDotH, float(u_Kshiny));
-  vec3 emissive = u_Ke;
-  vec3 ambient = u_Lamp0Amb * u_Ka;
-  vec3 diffuse = u_Lamp0Diff * v_Kd * nDotL;
-  vec3 speculr = u_Lamp0Spec * u_Ks * e64;
-  gl_FragColor = vec4(emissive + ambient + diffuse + speculr , 1.0);
-}`
+'precision highp float;\n' +
+'precision highp int;\n' +
+//
+//--------------- GLSL Struct Definitions:
+'struct LampT {\n' +		// Describes one point-like Phong light source
+'		vec3 pos;\n' +			// (x,y,z,w); w==1.0 for local light at x,y,z position
+                        //		   w==0.0 for distant light from x,y,z direction 
+' 	vec3 ambi;\n' +			// Ia ==  ambient light source strength (r,g,b)
+' 	vec3 diff;\n' +			// Id ==  diffuse light source strength (r,g,b)
+'		vec3 spec;\n' +			// Is == specular light source strength (r,g,b)
+'}; \n' +
+//
+'struct MatlT {\n' +		// Describes one Phong material by its reflectances:
+'		vec3 emit;\n' +			// Ke: emissive -- surface 'glow' amount (r,g,b);
+'		vec3 ambi;\n' +			// Ka: ambient reflectance (r,g,b)
+'		vec3 diff;\n' +			// Kd: diffuse reflectance (r,g,b)
+'		vec3 spec;\n' + 		// Ks: specular reflectance (r,g,b)
+'		int shiny;\n' +			// Kshiny: specular exponent (integer >= 1; typ. <200)
+'		};\n' +
+//
+//-------------UNIFORMS: values set from JavaScript before a drawing command.
+// first light source: (YOU write a second one...)
+'uniform LampT u_LampSet[1];\n' +		// Array of all light sources.
+'uniform MatlT u_MatlSet[1];\n' +		// Array of all materials.
+//
+'uniform vec3 u_eyePosWorld; \n' + 	// Camera/eye location in world coords.
+
+ //-------------VARYING:Vertex Shader values sent per-pixel to Fragment shader: 
+'varying vec3 v_Normal;\n' +				// Find 3D surface normal at each pix
+'varying vec4 v_Position;\n' +			// pixel's 3D pos too -- in 'world' coords
+'varying vec3 v_Kd;	\n' +						// Find diffuse reflectance K_d per pix
+                          // Ambient? Emissive? Specular? almost
+                          // NEVER change per-vertex: I use 'uniform' values
+
+'void main() { \n' +
+     // Normalize! !!IMPORTANT!! TROUBLE if you don't! 
+     // normals interpolated for each pixel aren't 1.0 in length any more!
+'  vec3 normal = normalize(v_Normal); \n' +
+//	'  vec3 normal = v_Normal; \n' +
+     // Find the unit-length light dir vector 'L' (surface pt --> light):
+'  vec3 lightDirection = normalize(u_LampSet[0].pos - v_Position.xyz);\n' +
+    // Find the unit-length eye-direction vector 'V' (surface pt --> camera)
+'  vec3 eyeDirection = normalize(u_eyePosWorld - v_Position.xyz); \n' +
+     // The dot product of (unit-length) light direction and the normal vector
+     // (use max() to discard any negatives from lights below the surface) 
+     // (look in GLSL manual: what other functions would help?)
+     // gives us the cosine-falloff factor needed for the diffuse lighting term:
+'  float nDotL = max(dot(lightDirection, normal), 0.0); \n' +
+     // The Blinn-Phong lighting model computes the specular term faster 
+     // because it replaces the (V*R)^shiny weighting with (H*N)^shiny,
+     // where 'halfway' vector H has a direction half-way between L and V
+     // H = norm(norm(V) + norm(L)).  Note L & V already normalized above.
+     // (see http://en.wikipedia.org/wiki/Blinn-Phong_shading_model)
+'  vec3 H = normalize(lightDirection + eyeDirection); \n' +
+'  float nDotH = max(dot(H, normal), 0.0); \n' +
+    // (use max() to discard any negatives from lights below the surface)
+    // Apply the 'shininess' exponent K_e:
+    // Try it two different ways:		The 'new hotness': pow() fcn in GLSL.
+    // CAREFUL!  pow() won't accept integer exponents! Convert K_shiny!  
+'  float e64 = pow(nDotH, float(u_MatlSet[0].shiny));\n' +
+ // Calculate the final color from diffuse reflection and ambient reflection
+//  '	 vec3 emissive = u_Ke;' +
+'	 vec3 emissive = 										u_MatlSet[0].emit;' +
+'  vec3 ambient = u_LampSet[0].ambi * u_MatlSet[0].ambi;\n' +
+'  vec3 diffuse = u_LampSet[0].diff * v_Kd * nDotL;\n' +
+'	 vec3 speculr = u_LampSet[0].spec * u_MatlSet[0].spec * e64;\n' +
+'  gl_FragColor = vec4(emissive + ambient + diffuse + speculr , 1.0);\n' +
+'}\n';
 
 // Global Variables
 // =========================
@@ -59,11 +129,6 @@ var canvas = document.getElementById('webgl');
 // ----------For tetrahedron & its matrix---------------------------------
 var g_vertsMax = 0;                 // number of vertices held in the VBO 
                                     // (global: replaces local 'n' variable)
-var g_modelMatrix = new Matrix4();  // Construct 4x4 matrix; contents get sent
-
-var orthographicMatrix = new Matrix4();
-                                    // to the GPU/Shaders as a 'uniform' var.
-var g_modelMatLoc;                  // that uniform's location in the GPU
 
 //------------For Animation---------------------------------------------
 var g_isRun = true;                 // run/stop for animation; used in tick().
@@ -122,9 +187,7 @@ var movingSide = 0.0;
 var movingVert = 0.0;
 var vel = 0.05;
 var camvel = 0.05;
-//   g_modelMatrix.lookAt(5, 5, 3,
-// -1, -2, -0.5,
-// 0, 0, 1);
+
 
 var g_angleNow = 0.0;
 var ANGLE_STEP = 25.0;
@@ -135,6 +198,8 @@ var uLoc_eyePosWorld = false;
 var uLoc_ModelMatrix = false;
 var uLoc_MvpMatrix = false;
 var uLoc_NormalMatrix = false;
+
+var	eyePosWorld = new Float32Array(3);	// x,y,z in world coords
 
 var modelMatrix = new Matrix4();  // Model matrix
 var mvpMatrix = new Matrix4();	// Model-view-projection matrix
@@ -160,12 +225,17 @@ var light0Ambi;
 var light0Diff;
 var light0Spec;
 
-var matlSel0 = MATL_RED_PLASTIC;
-var matlSel1 = MATL_RED_PLASTIC;
-var g_matl0 = new Material(matlSel0);
-var g_matl1 = new Material(matlSel1);
+var matlSel0 = MATL_SILVER_SHINY;
+var matlSel1 = MATL_BRASS;
+var matlSel2 = MATL_EMERALD;
+var matlSel3 = MATL_PEARL;
+var matl0 = new Material(matlSel0);
+var matl1 = new Material(matlSel1);
+var matl2 = new Material(matlSel2);
+var matl3 = new Material(matlSel3);
 
-var g_lamp0 = new LightsT();
+
+var lamp0 = new LightsT();
 
 
 function main() {
@@ -211,15 +281,88 @@ function main() {
   // Specify the color for clearing <canvas>
   gl.clearColor(0.0, 0.0, 0.0, 1.0);
 
-	gl.enable(gl.DEPTH_TEST); 	  
-	
-  // // Get handle to graphics system's storage location of u_ModelMatrix
-  // g_modelMatLoc = gl.getUniformLocation(gl.program, 'u_ModelMatrix');
-  // if (!g_modelMatLoc) { 
-  //   console.log('Failed to get the storage location of u_ModelMatrix');
-  //   return;
-  // } 
+	gl.enable(gl.DEPTH_TEST); 
   
+    uLoc_eyePosWorld  = gl.getUniformLocation(gl.program, 'u_eyePosWorld');
+  uLoc_ModelMatrix  = gl.getUniformLocation(gl.program, 'u_ModelMatrix');
+  uLoc_MvpMatrix    = gl.getUniformLocation(gl.program, 'u_MvpMatrix');
+  uLoc_NormalMatrix = gl.getUniformLocation(gl.program, 'u_NormalMatrix');
+  if (!uLoc_eyePosWorld ||
+      !uLoc_ModelMatrix	|| !uLoc_MvpMatrix || !uLoc_NormalMatrix) {
+  	console.log('Failed to get GPUs matrix storage locations');
+  	return;
+  	}
+	//  ... for Phong light source:
+	// NEW!  Note we're getting the location of a GLSL struct array member:
+
+  lamp0.u_pos  = gl.getUniformLocation(gl.program, 'u_LampSet[0].pos');	
+  lamp0.u_ambi = gl.getUniformLocation(gl.program, 'u_LampSet[0].ambi');
+  lamp0.u_diff = gl.getUniformLocation(gl.program, 'u_LampSet[0].diff');
+  lamp0.u_spec = gl.getUniformLocation(gl.program, 'u_LampSet[0].spec');
+  if( !lamp0.u_pos || !lamp0.u_ambi	|| !lamp0.u_diff || !lamp0.u_spec	) {
+    console.log('Failed to get GPUs Lamp0 storage locations');
+    return;
+  }
+
+	// ... for Phong material/reflectance:
+	matl0.uLoc_Ke = gl.getUniformLocation(gl.program, 'u_MatlSet[0].emit');
+	matl0.uLoc_Ka = gl.getUniformLocation(gl.program, 'u_MatlSet[0].ambi');
+	matl0.uLoc_Kd = gl.getUniformLocation(gl.program, 'u_MatlSet[0].diff');
+	matl0.uLoc_Ks = gl.getUniformLocation(gl.program, 'u_MatlSet[0].spec');
+	matl0.uLoc_Kshiny = gl.getUniformLocation(gl.program, 'u_MatlSet[0].shiny');
+	if(!matl0.uLoc_Ke || !matl0.uLoc_Ka || !matl0.uLoc_Kd 
+			  	  		    || !matl0.uLoc_Ks || !matl0.uLoc_Kshiny
+		 ) {
+		console.log('Failed to get GPUs Reflectance storage locations');
+		return;
+	}
+
+  matl1.uLoc_Ke = gl.getUniformLocation(gl.program, 'u_MatlSet[0].emit');
+	matl1.uLoc_Ka = gl.getUniformLocation(gl.program, 'u_MatlSet[0].ambi');
+	matl1.uLoc_Kd = gl.getUniformLocation(gl.program, 'u_MatlSet[0].diff');
+	matl1.uLoc_Ks = gl.getUniformLocation(gl.program, 'u_MatlSet[0].spec');
+	matl1.uLoc_Kshiny = gl.getUniformLocation(gl.program, 'u_MatlSet[0].shiny');
+	if(!matl1.uLoc_Ke || !matl1.uLoc_Ka || !matl1.uLoc_Kd 
+			  	  		    || !matl1.uLoc_Ks || !matl1.uLoc_Kshiny
+		 ) {
+		console.log('Failed to get GPUs Reflectance storage locations');
+		return;
+	}
+
+  matl2.uLoc_Ke = gl.getUniformLocation(gl.program, 'u_MatlSet[0].emit');
+	matl2.uLoc_Ka = gl.getUniformLocation(gl.program, 'u_MatlSet[0].ambi');
+	matl2.uLoc_Kd = gl.getUniformLocation(gl.program, 'u_MatlSet[0].diff');
+	matl2.uLoc_Ks = gl.getUniformLocation(gl.program, 'u_MatlSet[0].spec');
+	matl2.uLoc_Kshiny = gl.getUniformLocation(gl.program, 'u_MatlSet[0].shiny');
+	if(!matl2.uLoc_Ke || !matl2.uLoc_Ka || !matl2.uLoc_Kd 
+			  	  		    || !matl2.uLoc_Ks || !matl2.uLoc_Kshiny
+		 ) {
+		console.log('Failed to get GPUs Reflectance storage locations');
+		return;
+	}
+
+  matl3.uLoc_Ke = gl.getUniformLocation(gl.program, 'u_MatlSet[0].emit');
+	matl3.uLoc_Ka = gl.getUniformLocation(gl.program, 'u_MatlSet[0].ambi');
+	matl3.uLoc_Kd = gl.getUniformLocation(gl.program, 'u_MatlSet[0].diff');
+	matl3.uLoc_Ks = gl.getUniformLocation(gl.program, 'u_MatlSet[0].spec');
+	matl3.uLoc_Kshiny = gl.getUniformLocation(gl.program, 'u_MatlSet[0].shiny');
+	if(!matl3.uLoc_Ke || !matl3.uLoc_Ka || !matl3.uLoc_Kd 
+			  	  		    || !matl3.uLoc_Ks || !matl3.uLoc_Kshiny
+		 ) {
+		console.log('Failed to get GPUs Reflectance storage locations');
+		return;
+	}
+	// Position the camera in world coordinates:
+	eyePosWorld.set([4.0, 3.38, 4.05]);
+	gl.uniform3fv(uLoc_eyePosWorld, eyePosWorld);// use it to set our uniform
+	// (Note: uniform4fv() expects 4-element float32Array as its 2nd argument)
+	
+  // Init World-coord. position & colors of first light source in global vars;
+  lamp0.I_pos.elements.set( [6.0, 5.0, 5.0]);
+  lamp0.I_ambi.elements.set([0.4, 0.4, 0.4]);
+  lamp0.I_diff.elements.set([1.0, 1.0, 1.0]);
+  lamp0.I_spec.elements.set([1.0, 1.0, 1.0]);
+	
   // worldBox = new VBObox0();
   // phong_blinnBox = new VBObox1();
   // gouraud_blinnBox = new VBObox2();
@@ -246,7 +389,6 @@ function main() {
     									// (causes webpage to endlessly re-draw itself)
   };
   tick();							// start (and continue) animation: draw current image
-	
 }
 
 function initVertexBuffer() {
@@ -345,14 +487,14 @@ function initVertexBuffer() {
   									// Enable assignment of vertex buffer object's position data
 
   // Get graphics system's handle for our Vertex Shader's color-input variable;
-  var a_Color = gl.getAttribLocation(gl.program, 'a_Color');
-  if(a_Color < 0) {
+  var a_Normal = gl.getAttribLocation(gl.program, 'a_Normal');
+  if(a_Normal < 0) {
     console.log('Failed to get the storage location of a_Color');
     return -1;
   }
   // Use handle to specify how to retrieve color data from our VBO:
   gl.vertexAttribPointer(
-  	a_Color, 				// choose Vertex Shader attribute to fill with data
+  	a_Normal, 				// choose Vertex Shader attribute to fill with data
   	3, 							// how many values? 1,2,3 or 4. (we're using R,G,B)
   	gl.FLOAT, 			// data type for each value: usually gl.FLOAT
   	false, 					// did we supply fixed-point data AND it needs normalizing?
@@ -361,7 +503,7 @@ function initVertexBuffer() {
   	FSIZE * 4);			// Offset -- how many bytes from START of buffer to the
   									// value we will actually use?  Need to skip over x,y,z,w
   									
-  gl.enableVertexAttribArray(a_Color);  
+  gl.enableVertexAttribArray(a_Normal);  
   									// Enable assignment of vertex buffer object's position data
 
 	//--------------------------------DONE!
@@ -373,12 +515,46 @@ function initVertexBuffer() {
 */
 }
 
+function initArrayBuffer(gl, attribute, data, type, num) {
+  //-------------------------------------------------------------------------------
+    // Create a buffer object
+    var buffer = gl.createBuffer();
+    if (!buffer) {
+      console.log('Failed to create the buffer object');
+      return false;
+    }
+    // Write date into the buffer object
+    gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+    gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW);
+    // Assign the buffer object to the attribute variable
+    var a_attribute = gl.getAttribLocation(gl.program, attribute);
+    if (a_attribute < 0) {
+      console.log('Failed to get the storage location of ' + attribute);
+      return false;
+    }
+    gl.vertexAttribPointer(a_attribute, num, type, false, 0, 0);
+    // Enable the assignment of the buffer object to the attribute variable
+    gl.enableVertexAttribArray(a_attribute);
+  
+    return true;
+  }
+
 function drawAll() {
-    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-        // clrColr = new Float32Array(4);
-        // clrColr = gl.getParameter(gl.COLOR_CLEAR_VALUE);
-    // g_modelMatrix.setIdentity();
-    // pushMatrix(g_modelMatrix);
+
+    gl.uniform3fv(lamp0.u_pos,  lamp0.I_pos.elements.slice(0,3));
+    //		 ('slice(0,3) member func returns elements 0,1,2 (x,y,z) ) 
+    gl.uniform3fv(lamp0.u_ambi, lamp0.I_ambi.elements);		// ambient
+    gl.uniform3fv(lamp0.u_diff, lamp0.I_diff.elements);		// diffuse
+    gl.uniform3fv(lamp0.u_spec, lamp0.I_spec.elements);		// Specular
+  //	console.log('lamp0.u_pos',lamp0.u_pos,'\n' );
+  //	console.log('lamp0.I_diff.elements', lamp0.I_diff.elements, '\n');
+  
+    //---------------For the Material object(s):
+    gl.uniform3fv(matl0.uLoc_Ke, matl0.K_emit.slice(0,3));				// Ke emissive
+    gl.uniform3fv(matl0.uLoc_Ka, matl0.K_ambi.slice(0,3));				// Ka ambient
+    gl.uniform3fv(matl0.uLoc_Kd, matl0.K_diff.slice(0,3));				// Kd	diffuse
+    gl.uniform3fv(matl0.uLoc_Ks, matl0.K_spec.slice(0,3));				// Ks specular
+    gl.uniform1i(matl0.uLoc_Kshiny, parseInt(matl0.K_shiny, 10));     // Kshiny 
 
     var width = gl.canvas.width;
     var height = gl.canvas.height * (2/3);
@@ -386,19 +562,23 @@ function drawAll() {
     var z_near = 1;
     var z_far = 1000;
 
-    // GLOBAL VARS FOR: eye-point, up-vector, theta, deltaZ (camera - aim point)
-
-    // left view port - perspective camera
+    // view port - perspective camera
     gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+    //modelMatrix.setRotate(0, 0, 1, 0); // Rotate around the y-axis
     mvpMatrix.setPerspective(30.0, aspect_ratio, z_near, z_far);
-    mvpMatrix.lookAt(eye[0], eye[1], eye[2],
+    mvpMatrix.lookAt(eyePosWorld[0], eyePosWorld[1], eyePosWorld[2],
                       aim[0], aim[1], aim[2],
                       up[0], up[1], up[2]);
 
-    modelMatrix.set(mvpMatrix);
+    modelMatrix.multiply(mvpMatrix);
 
     normalMatrix.setInverseOf(modelMatrix);
     normalMatrix.transpose();
+
+    gl.uniformMatrix4fv(uLoc_ModelMatrix, false, modelMatrix.elements);
+    gl.uniformMatrix4fv(uLoc_MvpMatrix, false, mvpMatrix.elements);
+    gl.uniformMatrix4fv(uLoc_NormalMatrix, false, normalMatrix.elements);
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
     // worldBox.switchToMe();
     // worldBox.adjust();
@@ -429,7 +609,6 @@ function drawAll() {
 
                       // point camera 45 angle down towards ground
 
-    drawAxes();
     drawGround();
     drawMainAssembly();
     drawCattailsAssembly();
@@ -445,150 +624,102 @@ function drawResize() {
     drawAll();
 }
 
-function drawCattails() {
-    pushMatrix(g_modelMatrix);
-    g_modelMatrix.rotate(90, 1, 0, 0);
-    g_modelMatrix.translate(2.0, 1.0, 3.0);
-    gl.uniformMatrix4fv(g_modelMatLoc, false, g_modelMatrix.elements);
-
-    gl.drawArrays(gl.TRIANGLES, 
-        cattailLeafStart/floatsPerVertex,
-        cattailLeafVerts.length/floatsPerVertex);
-
-    g_modelMatrix.translate(0.1, 0.0, 0.0);
-    gl.uniformMatrix4fv(g_modelMatLoc, false, g_modelMatrix.elements);
-
-    gl.drawArrays(gl.TRIANGLES, 
-            cattailStart/floatsPerVertex,
-            cattailVerts.length/floatsPerVertex);
-
-    g_modelMatrix = popMatrix();
-}
-
-function drawFrog() {
-    pushMatrix(g_modelMatrix);
-    g_modelMatrix.rotate(90, 1, 0, 0);
-    g_modelMatrix.translate(0.0, 0.0, g_bounce);
-    g_modelMatrix.scale(0.2, 0.2, 0.2);
-    gl.uniformMatrix4fv(g_modelMatLoc, false, g_modelMatrix.elements);
-
-    gl.drawArrays(gl.TRIANGLES, 
-        frogStart/floatsPerVertex,
-        frogVerts.length/floatsPerVertex);
-
-    g_modelMatrix = popMatrix();
-}
-
-function drawAxes() {
-    pushMatrix(g_modelMatrix);
-
-    //g_modelMatrix.translate(0.8, 0.5, 0.0);
-    gl.uniformMatrix4fv(g_modelMatLoc, false, g_modelMatrix.elements);
-    gl.drawArrays(gl.LINES, axesStart/floatsPerVertex, axesVerts.length/floatsPerVertex);
-    g_modelMatrix = popMatrix();
-}
 
 function drawMainAssembly() {
 
-  pushMatrix(g_modelMatrix);
+ pushMatrix(mvpMatrix);
+ gl.uniform3fv(matl1.uLoc_Ke, matl1.K_emit.slice(0,3));				// Ke emissive
+ gl.uniform3fv(matl1.uLoc_Ka, matl1.K_ambi.slice(0,3));				// Ka ambient
+ gl.uniform3fv(matl1.uLoc_Kd, matl1.K_diff.slice(0,3));				// Kd	diffuse
+ gl.uniform3fv(matl1.uLoc_Ks, matl1.K_spec.slice(0,3));				// Ks specular
+ gl.uniform1i(matl1.uLoc_Kshiny, parseInt(matl1.K_shiny, 10));     // Kshiny 
 
-  g_modelMatrix.rotate(90, 1, 0, 0);
-  g_modelMatrix.translate(0.0, 1.0, 0.0);
+  modelMatrix.setRotate(90, 1, 0, 0);
+  mvpMatrix.rotate(90, 0, 1, 0); 
+  mvpMatrix.translate(0.0, 3.0, 0.0);
   //-------Draw Spinning LilyPad
-  g_modelMatrix.translate(0.0, -0.3, 0.0);
-  g_modelMatrix.scale(0.5, 0.5, 0.5);
-  g_modelMatrix.rotate(g_angle01, 0, 1, 0); 
-  gl.uniformMatrix4fv(g_modelMatLoc, false, g_modelMatrix.elements);
-
+  mvpMatrix.translate(0.0, -0.3, 0.0);
+  mvpMatrix.scale(0.5, 0.5, 0.5);
+  mvpMatrix.rotate(g_angle01, 0, 0, 1);
+  gl.uniformMatrix4fv(uLoc_ModelMatrix, false, modelMatrix.elements);
+  normalMatrix.setInverseOf(modelMatrix);
+  normalMatrix.transpose();
+  gl.uniformMatrix4fv(uLoc_MvpMatrix, false, mvpMatrix.elements);
+  gl.uniformMatrix4fv(uLoc_NormalMatrix, false, normalMatrix.elements);
   gl.drawArrays(gl.TRIANGLES, 
       lilyStart/floatsPerVertex,
       lilyVerts.length/floatsPerVertex);
 
-  //-------Draw spinning FROG!~!!
-  g_modelMatrix.translate(0.1, 0.3, 0.0);
-  g_modelMatrix.scale(0.8, 0.8, 0.8);
-  g_modelMatrix.rotate(g_angle02, 0,0,1)
-  gl.uniformMatrix4fv(g_modelMatLoc, false, g_modelMatrix.elements);
+  gl.uniform3fv(matl2.uLoc_Ke, matl2.K_emit.slice(0,3));				// Ke emissive
+  gl.uniform3fv(matl2.uLoc_Ka, matl2.K_ambi.slice(0,3));				// Ka ambient
+  gl.uniform3fv(matl2.uLoc_Kd, matl2.K_diff.slice(0,3));				// Kd	diffuse
+  gl.uniform3fv(matl2.uLoc_Ks, matl2.K_spec.slice(0,3));				// Ks specular
+  gl.uniform1i(matl2.uLoc_Kshiny, parseInt(matl2.K_shiny, 10));     // Kshiny 
+     
+  
+  // //-------Draw spinning FROG!~!!
+  mvpMatrix.translate(0.1, 0.3, 0.0);
+  mvpMatrix.scale(0.8, 0.8, 0.8);
+  mvpMatrix.rotate(g_angle02, 0,0,1)
+  gl.uniformMatrix4fv(uLoc_ModelMatrix, false, modelMatrix.elements);
+  normalMatrix.setInverseOf(modelMatrix);
+  normalMatrix.transpose();
+  gl.uniformMatrix4fv(uLoc_MvpMatrix, false, mvpMatrix.elements);
+  gl.uniformMatrix4fv(uLoc_NormalMatrix, false, normalMatrix.elements);
 
   gl.drawArrays(gl.TRIANGLES,           // draw triangles from verts in VBO
       frogStart/floatsPerVertex,                     // start at vertex 12,
       frogVerts.length/floatsPerVertex);   
 
-      drawAxes();
-
-  //-------Draw spinning TONGUE!~!!
-  g_modelMatrix.translate(-0.2, 0.4, 0.4);
-  g_modelMatrix.scale(0.3, 0.3, 0.3);
-
-  //g_modelMatrix.rotate(-90, 0,1,0);
-  g_modelMatrix.rotate(g_angle03, 0, 1, 0);
-  g_modelMatrix.translate(.2, 0.1, -.2);
-  gl.uniformMatrix4fv(g_modelMatLoc, false, g_modelMatrix.elements);
-
-  gl.drawArrays(gl.TRIANGLES,           // draw triangles from verts in VBO
-      tongueStart/floatsPerVertex,                     // start at vertex 12,
-      tongueVerts.length/floatsPerVertex);
-
-      drawAxes();
-
-    //------ DRAW BEE
-  g_modelMatrix.translate(1.2, 0.0, 0.0);
-  g_modelMatrix.scale(0.5, 0.5, 0.5);
-  g_modelMatrix.rotate(g_angle04, 0, 0, 1);
-  gl.uniformMatrix4fv(g_modelMatLoc, false, g_modelMatrix.elements);
-
-  gl.drawArrays(gl.TRIANGLES,           // draw triangles from verts in VBO
-      beeBodyStart/floatsPerVertex,                     // start at vertex 12,
-      beeBodyVerts.length/floatsPerVertex);
-
-    
-    g_modelMatrix.translate(0.0, 0.5, 0.0);
-    g_modelMatrix.scale(0.6, 0.6, 0.6);
-    //g_modelMatrix.rotate(g_angle04, 0, 0, 0);
-    gl.uniformMatrix4fv(g_modelMatLoc, false, g_modelMatrix.elements);
-
-    gl.drawArrays(gl.TRIANGLES,           // draw triangles from verts in VBO
-        beeWingStart/floatsPerVertex,                     // start at vertex 12,
-        beeWingVerts.length/floatsPerVertex);
-
-    g_modelMatrix = popMatrix();
+    mvpMatrix = popMatrix();
 }
 
 function drawBee() {
-    pushMatrix(g_modelMatrix);
+    pushMatrix(mvpMatrix);
     
-    g_modelMatrix.translate(3.0, 0.0, 1.0);
-    g_modelMatrix.scale(0.3, 0.3, 0.3);
-
-  //   quatMatrix.setFromQuat(qTot.x, qTot.y, qTot.z, qTot.w);	// Quaternion-->Matrix
-	// g_modelMatrix.concat(quatMatrix);
-
-    g_modelMatrix.translate(0.0, 0.0, g_bounce);
-
-    gl.uniformMatrix4fv(g_modelMatLoc, false, g_modelMatrix.elements);
+    mvpMatrix.translate(4.0, 0.0, g_bounce);
+    mvpMatrix.scale(0.3, 0.3, 0.3);
+    gl.uniformMatrix4fv(uLoc_ModelMatrix, false, modelMatrix.elements);
+    normalMatrix.setInverseOf(modelMatrix);
+    normalMatrix.transpose();
+    gl.uniformMatrix4fv(uLoc_MvpMatrix, false, mvpMatrix.elements);
+    gl.uniformMatrix4fv(uLoc_NormalMatrix, false, normalMatrix.elements);
     gl.drawArrays(gl.TRIANGLES, beeBodyStart/floatsPerVertex,
         beeBodyVerts.length/floatsPerVertex);
 
-    drawAxes();
-    pushMatrix(g_modelMatrix);
+    pushMatrix(mvpMatrix);
 
+    gl.uniform3fv(matl3.uLoc_Ke, matl3.K_emit.slice(0,3));				// Ke emissive
+    gl.uniform3fv(matl3.uLoc_Ka, matl3.K_ambi.slice(0,3));				// Ka ambient
+    gl.uniform3fv(matl3.uLoc_Kd, matl3.K_diff.slice(0,3));				// Kd	diffuse
+    gl.uniform3fv(matl3.uLoc_Ks, matl3.K_spec.slice(0,3));				// Ks specular
+    gl.uniform1i(matl3.uLoc_Kshiny, parseInt(matl3.K_shiny, 10));     // Kshiny 
 
-    g_modelMatrix.translate(0.3, 0.2, 0.7);
-    g_modelMatrix.rotate(45, 1, 0, 0);
-    g_modelMatrix.scale(0.6, 0.6, 0.6);
+    mvpMatrix.translate(0.3, 0.2, 0.7);
+    mvpMatrix.rotate(45, 1, 0, 0);
+    mvpMatrix.scale(0.6, 0.6, 0.6);
+
     //g_modelMatrix.rotate(g_angle04, 0, 0, 0);
-    gl.uniformMatrix4fv(g_modelMatLoc, false, g_modelMatrix.elements);
+    gl.uniformMatrix4fv(uLoc_ModelMatrix, false, modelMatrix.elements);
+    normalMatrix.setInverseOf(modelMatrix);
+    normalMatrix.transpose();
+    gl.uniformMatrix4fv(uLoc_MvpMatrix, false, mvpMatrix.elements);
+    gl.uniformMatrix4fv(uLoc_NormalMatrix, false, normalMatrix.elements);
 
     gl.drawArrays(gl.TRIANGLES,           // draw triangles from verts in VBO
         beeWingStart/floatsPerVertex,                     // start at vertex 12,
         beeWingVerts.length/floatsPerVertex);
 
-    g_modelMatrix = popMatrix();
+    mvpMatrix = popMatrix();
 
-    g_modelMatrix.translate(0.3, -0.8, 0.4);
-    g_modelMatrix.rotate(135, 1, 0, 0);
-    g_modelMatrix.scale(0.6, 0.6, 0.6);
-    gl.uniformMatrix4fv(g_modelMatLoc, false, g_modelMatrix.elements);
+    mvpMatrix.translate(0.3, -0.8, 0.4);
+    mvpMatrix.rotate(135, 1, 0, 0);
+    mvpMatrix.scale(0.6, 0.6, 0.6);
+    gl.uniformMatrix4fv(uLoc_ModelMatrix, false, modelMatrix.elements);
+    normalMatrix.setInverseOf(modelMatrix);
+    normalMatrix.transpose();
+    gl.uniformMatrix4fv(uLoc_MvpMatrix, false, mvpMatrix.elements);
+    gl.uniformMatrix4fv(uLoc_NormalMatrix, false, normalMatrix.elements);
 
     gl.drawArrays(gl.TRIANGLES,           // draw triangles from verts in VBO
         beeWingStart/floatsPerVertex,                     // start at vertex 12,
@@ -597,50 +728,65 @@ function drawBee() {
 }
 
 function drawGround() {
-    pushMatrix(g_modelMatrix);
-
-    g_modelMatrix.translate( 0.4, -0.4, 0.0);	
-    g_modelMatrix.scale(0.1, 0.1, 0.1);				// shrink by 10X:
+    pushMatrix(modelMatrix);
+    modelMatrix.translate( 0.4, -0.4, 0.0);	
+    modelMatrix.scale(0.1, 0.1, 0.1);				// shrink by 10X:
+    modelMatrix.rotate(90, 0, 0, 1);
 
     // Drawing:
     // Pass our current matrix to the vertex shaders:
-    gl.uniformMatrix4fv(g_modelMatLoc, false, g_modelMatrix.elements);
+    gl.uniformMatrix4fv(uLoc_ModelMatrix, false, modelMatrix.elements);
+    normalMatrix.setInverseOf(modelMatrix);
+    normalMatrix.transpose();
+    gl.uniformMatrix4fv(uLoc_NormalMatrix, false, normalMatrix.elements);
     // Draw just the ground-plane's vertices
     gl.drawArrays(gl.LINES, 								// use this drawing primitive, and
                                 gndStart/floatsPerVertex,	// start at this vertex number, and
                                 gndVerts.length/floatsPerVertex);	// draw this many vertices.
-    g_modelMatrix = popMatrix();
+    modelMatrix = popMatrix();
 }
 
 function drawCattailsAssembly() {
-    pushMatrix(g_modelMatrix);
+    pushMatrix(mvpMatrix);
 
-    g_modelMatrix.translate(-0.9, 0.9, 0.0);
+    mvpMatrix.translate(-0.9, 0.9, 0.0);
 
-    g_modelMatrix.scale(0.5, 0.5, 0.5);
-    g_modelMatrix.rotate(-90, 1, 0, 0);
+    mvpMatrix.scale(0.5, 0.5, 0.5);
+    mvpMatrix.rotate(-90, 1, 0, 0);
 
-    g_modelMatrix.rotate(g_angle01, 0, 1, 0); 
+    mvpMatrix.rotate(g_angle01, 0, 1, 0); 
 
 
-    gl.uniformMatrix4fv(g_modelMatLoc, false, g_modelMatrix.elements);
+    gl.uniformMatrix4fv(uLoc_ModelMatrix, false, modelMatrix.elements);
+    normalMatrix.setInverseOf(modelMatrix);
+    normalMatrix.transpose();
+    gl.uniformMatrix4fv(uLoc_MvpMatrix, false, mvpMatrix.elements);
+    gl.uniformMatrix4fv(uLoc_NormalMatrix, false, normalMatrix.elements);
     gl.drawArrays(gl.TRIANGLES, lilyStart/floatsPerVertex, lilyVerts.length/floatsPerVertex);
 
-    g_modelMatrix = popMatrix();
-    pushMatrix(g_modelMatrix);
-    g_modelMatrix.translate(0, 0.0, 1.0);
+    mvpMatrix = popMatrix();
+    pushMatrix(mvpMatrix);
+    mvpMatrix.translate(0, 0.0, 1.0);
     
-    g_modelMatrix.scale(1.0, 1.0, 1.0);
-    g_modelMatrix.rotate(90, 1, 0, 0);
-    gl.uniformMatrix4fv(g_modelMatLoc, false, g_modelMatrix.elements);
+    mvpMatrix.scale(1.0, 1.0, 1.0);
+    mvpMatrix.rotate(90, 1, 0, 0);
+    gl.uniformMatrix4fv(uLoc_ModelMatrix, false, modelMatrix.elements);
+    normalMatrix.setInverseOf(modelMatrix);
+    normalMatrix.transpose();
+    gl.uniformMatrix4fv(uLoc_MvpMatrix, false, mvpMatrix.elements);
+    gl.uniformMatrix4fv(uLoc_NormalMatrix, false, normalMatrix.elements);
 
     gl.drawArrays(gl.TRIANGLES, 
         cattailStart/floatsPerVertex,
         cattailVerts.length/floatsPerVertex);
 
-    g_modelMatrix.translate(-0.3, 0.2, 0);
-    g_modelMatrix.rotate(15, 0, 0, 1);
-    gl.uniformMatrix4fv(g_modelMatLoc, false, g_modelMatrix.elements);
+    mvpMatrix.translate(-0.3, 0.2, 0);
+    mvpMatrix.rotate(15, 0, 0, 1);
+    gl.uniformMatrix4fv(uLoc_ModelMatrix, false, modelMatrix.elements);
+    normalMatrix.setInverseOf(modelMatrix);
+    normalMatrix.transpose();
+    gl.uniformMatrix4fv(uLoc_MvpMatrix, false, mvpMatrix.elements);
+    gl.uniformMatrix4fv(uLoc_NormalMatrix, false, normalMatrix.elements);
     gl.drawArrays(gl.TRIANGLES, 
         cattailLeafStart/floatsPerVertex,
         cattailLeafVerts.length/floatsPerVertex);
@@ -889,17 +1035,17 @@ function myMouseDown(ev, gl, canvas) {
     var camdiffY = (straight * Math.sin(camPhi)) + (side * Math.cos(camPhi));
     var camdiffZ = (straight * (Math.cos(Math.PI - camTheta))) + vert;
   
-    eye[0] += camdiffX;
-    eye[1] += camdiffY;
-    eye[2] += camdiffZ;
+    eyePosWorld[0] += camdiffX;
+    eyePosWorld[1] += camdiffY;
+    eyePosWorld[2] += camdiffZ;
 
     var aimdiffX = Math.cos(camPhi) * Math.sin(camTheta);
     var aimdiffY = Math.sin(camPhi) * Math.sin(camTheta);
     var aimdiffZ = Math.cos(camTheta);
   
-    aim[0] = eye[0] + aimdiffX;
-    aim[1] = eye[1] + aimdiffY;
-    aim[2] = eye[2] + aimdiffZ;
+    aim[0] = eyePosWorld[0] + aimdiffX;
+    aim[1] = eyePosWorld[1] + aimdiffY;
+    aim[2] = eyePosWorld[2] + aimdiffZ;
   }
 
   function myKeyDown(kev) {
