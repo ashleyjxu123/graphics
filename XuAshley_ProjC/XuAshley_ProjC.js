@@ -214,10 +214,11 @@ var shadingSel = SHADING_PHONG;
 var lightingSel = LIGHTING_BLINNPHONG;
 
 var worldBox;
-var phong_blinnBox;
-var phong_phongBox;
-var gouraud_blinnBox;
-var gouraud_phongBox;
+var gouraudBox;
+// var phong_blinnBox;
+// var phong_phongBox;
+// var gouraud_blinnBox;
+// var gouraud_phongBox;
 
 var light0X;
 var light0Y;
@@ -368,11 +369,13 @@ function main() {
   lamp0.I_spec.elements.set([1.0, 1.0, 1.0]);
 	
   worldBox = new VBObox0();
+  gouraudBox = new VBObox1();
   // phong_blinnBox = new VBObox1();
   // gouraud_blinnBox = new VBObox2();
   // phong_phongBox = new VBObox3();
   // gouraud_phongBox = new VBObox4();
   worldBox.init(gl);
+  gouraudBox.init(gl);
   // phong_blinnBox.init(gl);
   // gouraud_blinnBox.init(gl);
   // phong_phongBox.init(gl);
