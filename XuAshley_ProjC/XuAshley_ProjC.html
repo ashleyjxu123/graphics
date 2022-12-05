@@ -16,60 +16,83 @@
     <div id="instructions">
         <b>INSTRUCTIONS:</b>
         <br>
-        Try using your cursor to rotate the fly!!
         <br>
-        <br>
-        Use W/A/S/D to move the camera. Use the arrow keys to aim the camera.
+        Use W/A/S/D to move the camera. Use the arrow keys to aim the camera. Press 'M' to change the material of the sphere.
 
         <!--  Mouse click/drag amounts.  Look in 'console' for event reports;
                 the 'clear' button calls Javascript function 'clearDrag()'
                 whose sole purpose is to set global vars xMdragTot,yMdragTot ==0.0
             Note we use these totals to rotate the triangle at upper left.
         -->
-        <br> <br>
-        Use the reset button to reset the rotation of the fly.
         <br>
-        Reset:
         <p>
-            <button type="button" onclick="resetQuat()"> Reset </button>
+        Use the button below to turn on or off the light!!
+        <br>
+          <button type="button" onclick="light0_toggle()"> Light on/off </button>
+
+          <!-- <label for="shading-type">Choose a shading type: </label>
+          <select name="shading-names" id="shading-names" onChange="GouraudShadingToggle()">
+              <option value="Gouraud">Gouraud</option>
+              <option value="Phong">Phong</option>
+          </select> -->
         </p>
         <br>
+        Use the dropdowns below to select shading and lighting type :)
         <br>
-        Use the buttons below to control the rotations of the lily pad, the frog, and the tongue.
+        NOTE: please ensure the dropdown is deselected before using the arrow keys by clicking anywhere outside the dropdown menu. 
         <br>
-        <br>
-        Lily pad:
         <p>
-            <!--BUTTONS: commands below create HTML push-buttons with labels
-                Spin <<, runStop, and Spin >>.  
-            When users click the button, HTML calls JavaScript functions
-                "spinDown()", "runStop()" and "spinUp()"   -->
-        <button type="button" onclick="spinDown(1)">Spin << </button>
-        <button type="button" onclick="runStop(1)">Run/Stop</button>
-        <button type="button" onclick="spinUp(1)">Spin >> </button>
+            <!-- <button type="button" onclick="GouraudShadingToggle()"> Gouraud hide/show </button> -->
+
+            <div class = "shadingToggle">
+              <label for="shading-type">Choose a shading type: </label>
+            <select name="shading-names" id="shading-names" onChange="ShadingToggle()">
+                <option value="Phong">Phong</option>
+                <option value="Gouraud">Gouraud</option>
+            </select>
+            </div>
+
+            <div class="lightingToggle">
+              <label for="lighting-type">Choose a lighting type: </label>
+            <select name="lighting-names" id="lighting-names" onChange="LightingToggle()">
+                <option value="Blinn-Phong">Blinn-Phong</option>
+                <option value="Phong">Phong</option>
+            </select>
+            </div>
+      
         </p>
+
+
         <br>
-        Frog:
-        <p>
-            <!--BUTTONS: commands below create HTML push-buttons with labels
-                Spin <<, runStop, and Spin >>.  
-            When users click the button, HTML calls JavaScript functions
-                "spinDown()", "runStop()" and "spinUp()"   -->
-        <button type="button" onclick="spinDown(2)">Spin << </button>
-        <button type="button" onclick="runStop(2)">Run/Stop</button>
-        <button type="button" onclick="spinUp(2)">Spin >> </button>
-        </p>
+        <div class="lightControls">
+          Light X:
+          <div class="slidecontainer">
+            <input type="range" min="-10.0" max="10.0" step = "1" value="5" class="slider" id="light0_x">
+          </div>
+          Light Y:
+          <div class="slidecontainer">
+            <input type="range" min="-10.0" max="10.0" step = "1" value="5" class="slider" id="light0_y">
+          </div>
+          Light Z:
+          <div class="slidecontainer">
+            <input type="range" min="-10.0" max="10.0" step = "1" value="5" class="slider" id="light0_z">
+          </div>
+          Light ambience:
+          <div class="slidecontainer">
+            <input type="range" min="0.0" max="1.0" step = "0.1" value="0.5" class="slider" id="light0_ambi">
+          </div>
+          Light diffuse:
+          <div class="slidecontainer">
+            <input type="range" min="0.0" max="1.0" step = "0.1" value="0.5" class="slider" id="light0_diff">
+          </div>
+          Light specular:
+          <div class="slidecontainer">
+            <input type="range" min="0.0" max="1.0" step = ".1" value="0.5" class="slider" id="light0_spec">
+          </div>
+
+        </div>
+
         <br>
-        Tongue:
-        <p>
-            <!--BUTTONS: commands below create HTML push-buttons with labels
-                Spin <<, runStop, and Spin >>.  
-            When users click the button, HTML calls JavaScript functions
-                "spinDown()", "runStop()" and "spinUp()"   -->
-        <button type="button" onclick="spinDown(3)">Spin << </button>
-        <button type="button" onclick="runStop(3)">Run/Stop</button>
-        <button type="button" onclick="spinUp(3)">Spin >> </button>
-        </p>
     </div>
 	<!--	Load in the JavaScript libraries supplied by our textbook 
 			(Matsuda et al., 2013 WebGL Programming Guide) that help us
@@ -83,7 +106,9 @@
     <script src="lights-JT.js"></script>
 	<!--	Finally, load in our own JavaScript program file.
 	-->
-    <script src="JT_VBObox-Lib.js"></script>
+    <script src="XuAshley_VBObox.js"></script>
     <script src="XuAshley_ProjC.js"></script>
+    <script src="verts.js"></script>
+
   </body>
 </html>
